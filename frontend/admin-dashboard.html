@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EduPortal — Admin Dashboard</title>
+  <meta name="description" content="Administrator control panel for EduPortal. Create and manage courses, monitor enrollments, track student progress and view analytics." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/dashboard.css" />
+  <link rel="stylesheet" href="css/components.css" />
+</head>
+<body class="admin-theme">
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar" role="navigation" aria-label="Admin navigation">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">
+        <span class="logo-icon">🛡️</span>
+        <span class="logo-text">Admin Panel</span>
+      </div>
+      <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()" aria-label="Toggle sidebar">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="#" class="nav-item active" id="nav-overview" onclick="return showSection('overview')" aria-label="Admin overview">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        <span>Overview</span>
+      </a>
+      <a href="#" class="nav-item" id="nav-courses" onclick="return showSection('courses')" aria-label="Manage courses">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        <span>Courses</span>
+      </a>
+      <a href="#" class="nav-item" id="nav-students" onclick="return showSection('students')" aria-label="Manage students">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <span>Students</span>
+      </a>
+      <a href="#" class="nav-item" id="nav-enrollments" onclick="return showSection('enrollments')" aria-label="Enrollment monitoring">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        <span>Enrollments</span>
+      </a>
+      <a href="#" class="nav-item" id="nav-settings" onclick="return showSection('settings')" aria-label="System settings">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <span>Settings</span>
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <button class="logout-btn" id="admin-logout-btn" onclick="logout()" aria-label="Logout">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        <span>Logout</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content" id="main-content">
+
+    <!-- Top Bar -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="mobile-menu-btn" onclick="toggleSidebar()" aria-label="Open menu">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <div class="breadcrumb">
+          <span class="admin-label">Administrator</span>
+          <span id="page-breadcrumb">Overview</span>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="user-avatar admin-avatar" id="user-avatar-btn" role="button" tabindex="0">
+          <span id="avatar-initials">AD</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- ===== OVERVIEW SECTION ===== -->
+    <section id="section-overview" class="dashboard-section active">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title" id="welcome-heading">Admin Dashboard 🛡️</h2>
+          <p class="section-subtitle" id="current-date"></p>
+        </div>
+        <button class="btn-action" onclick="showSection('courses')">+ New Course</button>
+      </div>
+
+      <!-- Dynamic Stats -->
+      <div class="stats-grid" id="admin-stats-grid">
+        <div class="stat-card">
+          <div class="stat-card-icon blue">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </div>
+          <div class="stat-card-info">
+            <span class="stat-card-num" id="stat-total-students">0</span>
+            <span class="stat-card-label">Total Students</span>
+          </div>
+          <div class="stat-card-trend up" id="stat-students-trend">Registered</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-icon green">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+          </div>
+          <div class="stat-card-info">
+            <span class="stat-card-num" id="stat-total-courses">0</span>
+            <span class="stat-card-label">Total Courses</span>
+          </div>
+          <div class="stat-card-trend up">Active Courses</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-icon purple">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          </div>
+          <div class="stat-card-info">
+            <span class="stat-card-num" id="stat-total-enrollments">0</span>
+            <span class="stat-card-label">Total Enrollments</span>
+          </div>
+          <div class="stat-card-trend up">All Time</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-icon orange">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          </div>
+          <div class="stat-card-info">
+            <span class="stat-card-num" id="stat-avg-progress">0%</span>
+            <span class="stat-card-label">Avg. Progress</span>
+          </div>
+          <div class="stat-card-trend up">Across All Courses</div>
+        </div>
+      </div>
+
+      <div class="content-grid">
+        <!-- Recent Registrations -->
+        <div class="content-card">
+          <h3 class="card-title">🧑‍🎓 Recently Registered Students</h3>
+          <div class="reg-list" id="recent-students-list">
+            <div class="empty-state-sm">No students registered yet.</div>
+          </div>
+        </div>
+        <!-- Recent Activity -->
+        <div class="content-card">
+          <h3 class="card-title">⚡ Recent Activity</h3>
+          <div class="activity-log" id="activity-log">
+            <div class="empty-state-sm">No recent activity.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== COURSES SECTION ===== -->
+    <section id="section-courses" class="dashboard-section">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">Course Management</h2>
+          <p class="section-subtitle">Create, edit, and manage all courses.</p>
+        </div>
+        <button class="btn-action" id="add-course-btn" onclick="openCourseModal()">+ Add Course</button>
+      </div>
+
+      <!-- Course grid rendered by JS -->
+      <div class="courses-grid" id="admin-courses-grid">
+        <div class="empty-state" id="courses-empty-state">
+          <div class="empty-icon">📚</div>
+          <h3>No Courses Yet</h3>
+          <p>Create your first course to get started.</p>
+          <button class="btn-action" onclick="openCourseModal()">+ Create Course</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== STUDENTS SECTION ===== -->
+    <section id="section-students" class="dashboard-section">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">Student Management</h2>
+          <p class="section-subtitle">View and oversee all registered students.</p>
+        </div>
+      </div>
+      <div class="table-card">
+        <div class="table-toolbar">
+          <input type="text" id="student-search" class="table-search" placeholder="Search by name, email or department..." oninput="filterStudentsTable(this.value)" aria-label="Search students" />
+        </div>
+        <div class="table-responsive">
+          <table class="data-table" id="students-table" role="table" aria-label="Students table">
+            <thead>
+              <tr>
+                <th scope="col">Student ID</th>
+                <th scope="col">Name</th>
+                <th scope="col">Department</th>
+                <th scope="col">Email</th>
+                <th scope="col">Enrolled Courses</th>
+                <th scope="col">Joined</th>
+                <th scope="col">Status</th>
+              </tr>
+            </thead>
+            <tbody id="students-tbody">
+              <tr id="students-empty-row">
+                <td colspan="7" class="table-empty">No students registered yet.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== ENROLLMENTS SECTION ===== -->
+    <section id="section-enrollments" class="dashboard-section">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">Enrollment Monitoring</h2>
+          <p class="section-subtitle">Track course enrollments and student progress.</p>
+        </div>
+      </div>
+      <!-- Per-course enrollment cards -->
+      <div id="enrollment-courses-list">
+        <div class="empty-state" id="enrollment-empty-state">
+          <div class="empty-icon">📋</div>
+          <h3>No Courses Available</h3>
+          <p>Create courses first, then enrollment data will appear here.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== SETTINGS SECTION ===== -->
+    <section id="section-settings" class="dashboard-section">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">System Settings</h2>
+          <p class="section-subtitle">Configure portal-wide settings and preferences.</p>
+        </div>
+      </div>
+      <div class="settings-grid">
+        <div class="settings-card">
+          <h4>🔒 Security Settings</h4>
+          <p>Configure password policies, session timeouts, and two-factor authentication.</p>
+          <button class="btn-action" onclick="showToast('Security settings coming soon!')">Configure</button>
+        </div>
+        <div class="settings-card">
+          <h4>📧 Email Notifications</h4>
+          <p>Manage automated email notifications for students and faculty.</p>
+          <button class="btn-action" onclick="showToast('Email settings coming soon!')">Configure</button>
+        </div>
+        <div class="settings-card">
+          <h4>🎓 Academic Calendar</h4>
+          <p>Set semester dates, holidays, and important academic milestones.</p>
+          <button class="btn-action" onclick="showToast('Calendar settings coming soon!')">Configure</button>
+        </div>
+        <div class="settings-card">
+          <h4>💾 Data Backup</h4>
+          <p>Schedule automated backups and manage data retention policies.</p>
+          <button class="btn-action" onclick="showToast('Backup settings coming soon!')">Configure</button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ===== COURSE MODAL ===== -->
+  <div class="modal-overlay" id="course-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 class="modal-title" id="modal-title">Create New Course</h3>
+        <button class="modal-close" onclick="closeCourseModal()" aria-label="Close modal">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <form id="course-form" class="modal-form" novalidate>
+        <input type="hidden" id="course-id" />
+        <div class="modal-grid">
+          <div class="form-group">
+            <label for="course-name" class="form-label">Course Name <span class="required">*</span></label>
+            <input type="text" id="course-name" class="form-input" placeholder="e.g. Data Structures & Algorithms" required />
+            <span class="field-error" id="course-name-error"></span>
+          </div>
+          <div class="form-group">
+            <label for="course-code" class="form-label">Course Code <span class="required">*</span></label>
+            <input type="text" id="course-code" class="form-input" placeholder="e.g. CS-301" required />
+            <span class="field-error" id="course-code-error"></span>
+          </div>
+          <div class="form-group modal-full">
+            <label for="course-description" class="form-label">Description</label>
+            <textarea id="course-description" class="form-input form-textarea" placeholder="Brief course description..." rows="3"></textarea>
+          </div>
+          <div class="form-group">
+            <label for="course-department" class="form-label">Department</label>
+            <div class="input-wrapper select-wrapper" style="padding:0;">
+              <select id="course-department" class="form-input form-select" style="padding-left:1rem;">
+                <option value="">All Departments</option>
+                <option value="Computer Science">Computer Science</option>
+                <option value="Software Engineering">Software Engineering</option>
+                <option value="Information Technology">Information Technology</option>
+                <option value="Electrical Engineering">Electrical Engineering</option>
+                <option value="Mechanical Engineering">Mechanical Engineering</option>
+                <option value="Business Administration">Business Administration</option>
+                <option value="Mathematics">Mathematics</option>
+                <option value="Physics">Physics</option>
+                <option value="Chemistry">Chemistry</option>
+                <option value="Economics">Economics</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="course-duration" class="form-label">Duration</label>
+            <input type="text" id="course-duration" class="form-input" placeholder="e.g. 16 weeks" />
+          </div>
+          <div class="form-group modal-full">
+            <label for="course-instructor" class="form-label">Instructor</label>
+            <input type="text" id="course-instructor" class="form-input" placeholder="e.g. Dr. Ahmed Malik" />
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn-secondary" onclick="closeCourseModal()">Cancel</button>
+          <button type="submit" class="btn-action" id="course-save-btn">Save Course</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===== COURSE DETAIL PANEL ===== -->
+  <div class="modal-overlay" id="course-detail-overlay" role="dialog" aria-modal="true" aria-labelledby="detail-title">
+    <div class="modal-box modal-wide">
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title" id="detail-title">Course Detail</h3>
+          <p class="modal-subtitle" id="detail-subtitle"></p>
+        </div>
+        <button class="modal-close" onclick="closeCourseDetail()" aria-label="Close">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="detail-stats-row" id="detail-stats-row"></div>
+      <div class="table-responsive">
+        <table class="data-table" id="detail-students-table">
+          <thead>
+            <tr>
+              <th>Student Name</th>
+              <th>Department</th>
+              <th>Enrolled On</th>
+              <th>Progress</th>
+            </tr>
+          </thead>
+          <tbody id="detail-students-tbody">
+            <tr><td colspan="4" class="table-empty">No students enrolled yet.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="toast" id="toast-notification" role="status" aria-live="polite"></div>
+
+  <script src="js/auth.js"></script>
+  <script src="js/admin-dashboard.js"></script>
+</body>
+</html>

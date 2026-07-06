@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EduPortal — Student Registration</title>
+  <meta name="description" content="Create your EduPortal student account. Register to access personalized learning dashboards, course enrollment, progress tracking and more." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/auth.css" />
+  <link rel="stylesheet" href="css/components.css" />
+</head>
+<body>
+
+  <!-- Animated Background Orbs -->
+  <div class="bg-orbs" aria-hidden="true">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+  </div>
+
+  <div class="auth-wrapper">
+
+    <!-- Left Panel - Branding -->
+    <div class="brand-panel">
+      <div class="brand-content">
+        <div class="brand-logo">
+          <span class="logo-icon">🎓</span>
+        </div>
+        <h1 class="brand-title">Join EduPortal</h1>
+        <p class="brand-tagline">Start your journey with a smarter, more connected learning experience.</p>
+        <ul class="brand-features">
+          <li><span class="feat-icon">✦</span> Browse &amp; enroll in courses</li>
+          <li><span class="feat-icon">✦</span> Track your learning progress</li>
+          <li><span class="feat-icon">✦</span> Connect with instructors</li>
+          <li><span class="feat-icon">✦</span> Personalized student dashboard</li>
+        </ul>
+        <div class="brand-steps">
+          <p class="steps-title">Getting started is easy:</p>
+          <div class="step-item"><span class="step-num">1</span><span>Fill in your details</span></div>
+          <div class="step-item"><span class="step-num">2</span><span>Choose your department</span></div>
+          <div class="step-item"><span class="step-num">3</span><span>Access your dashboard</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Panel - Registration Form -->
+    <div class="auth-panel">
+      <div class="auth-card register-card">
+
+        <!-- Form Header -->
+        <div class="form-header">
+          <div class="register-badge">Student Registration</div>
+          <h2 class="form-title">Create Your Account</h2>
+          <p class="form-subtitle">Join thousands of students already on EduPortal.</p>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="progress-bar" aria-label="Form completion progress">
+          <div class="progress-fill" id="progress-fill"></div>
+        </div>
+        <p class="progress-label" id="progress-label">0% Complete</p>
+
+        <!-- Alert Box -->
+        <div id="auth-alert" class="auth-alert" role="alert" aria-live="polite" style="display:none;"></div>
+
+        <!-- Registration Form -->
+        <form id="register-form" class="auth-form" novalidate>
+
+          <!-- Full Name -->
+          <div class="form-group">
+            <label for="reg-fullname" class="form-label">Full Name <span class="required">*</span></label>
+            <div class="input-wrapper">
+              <svg class="input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              <input
+                type="text"
+                id="reg-fullname"
+                name="fullname"
+                class="form-input"
+                placeholder="John Smith"
+                autocomplete="name"
+                required
+                aria-required="true"
+              />
+            </div>
+            <span class="field-error" id="fullname-error" role="alert"></span>
+          </div>
+
+          <!-- Email -->
+          <div class="form-group">
+            <label for="reg-email" class="form-label">Email Address <span class="required">*</span></label>
+            <div class="input-wrapper">
+              <svg class="input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+              <input
+                type="email"
+                id="reg-email"
+                name="email"
+                class="form-input"
+                placeholder="you@example.com"
+                autocomplete="email"
+                required
+                aria-required="true"
+              />
+            </div>
+            <span class="field-error" id="reg-email-error" role="alert"></span>
+          </div>
+
+          <!-- Username -->
+          <div class="form-group">
+            <label for="reg-username" class="form-label">Username <span class="required">*</span></label>
+            <div class="input-wrapper">
+              <svg class="input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>
+              <input
+                type="text"
+                id="reg-username"
+                name="username"
+                class="form-input"
+                placeholder="johnsmith99"
+                autocomplete="username"
+                required
+                aria-required="true"
+              />
+            </div>
+            <span class="field-error" id="username-error" role="alert"></span>
+          </div>
+
+          <!-- Department -->
+          <div class="form-group">
+            <label for="reg-department" class="form-label">Department <span class="required">*</span></label>
+            <div class="input-wrapper select-wrapper">
+              <svg class="input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+              <select
+                id="reg-department"
+                name="department"
+                class="form-input form-select"
+                required
+                aria-required="true"
+              >
+                <option value="" disabled selected>Select your department</option>
+                <option value="Computer Science">Computer Science</option>
+                <option value="Software Engineering">Software Engineering</option>
+                <option value="Information Technology">Information Technology</option>
+                <option value="Electrical Engineering">Electrical Engineering</option>
+                <option value="Mechanical Engineering">Mechanical Engineering</option>
+                <option value="Business Administration">Business Administration</option>
+                <option value="Mathematics">Mathematics</option>
+                <option value="Physics">Physics</option>
+                <option value="Chemistry">Chemistry</option>
+                <option value="Economics">Economics</option>
+              </select>
+              <svg class="select-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
+            <span class="field-error" id="department-error" role="alert"></span>
+          </div>
+
+          <!-- Password -->
+          <div class="form-group">
+            <label for="reg-password" class="form-label">Password <span class="required">*</span></label>
+            <div class="input-wrapper">
+              <svg class="input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              <input
+                type="password"
+                id="reg-password"
+                name="password"
+                class="form-input"
+                placeholder="Create a strong password"
+                autocomplete="new-password"
+                required
+                aria-required="true"
+              />
+              <button type="button" class="toggle-pw" onclick="togglePassword('reg-password', this)" aria-label="Toggle password visibility">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+            <!-- Password Strength -->
+            <div class="pw-strength" id="pw-strength-bar">
+              <div class="pw-strength-fill" id="pw-strength-fill"></div>
+            </div>
+            <span class="pw-strength-label" id="pw-strength-label"></span>
+            <span class="field-error" id="reg-password-error" role="alert"></span>
+          </div>
+
+          <!-- Confirm Password -->
+          <div class="form-group">
+            <label for="reg-confirm" class="form-label">Confirm Password <span class="required">*</span></label>
+            <div class="input-wrapper">
+              <svg class="input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              <input
+                type="password"
+                id="reg-confirm"
+                name="confirm"
+                class="form-input"
+                placeholder="Repeat your password"
+                autocomplete="new-password"
+                required
+                aria-required="true"
+              />
+              <button type="button" class="toggle-pw" onclick="togglePassword('reg-confirm', this)" aria-label="Toggle confirm password visibility">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+            <span class="field-error" id="confirm-error" role="alert"></span>
+          </div>
+
+          <!-- Terms -->
+          <div class="form-group terms-group">
+            <label class="checkbox-label" for="terms">
+              <input type="checkbox" id="terms" name="terms" required aria-required="true" />
+              <span class="checkbox-custom"></span>
+              I agree to the <a href="#" class="inline-link">Terms of Service</a> and <a href="#" class="inline-link">Privacy Policy</a>
+            </label>
+            <span class="field-error" id="terms-error" role="alert"></span>
+          </div>
+
+          <button type="submit" id="register-btn" class="btn btn-primary">
+            <span class="btn-text">Create Account</span>
+            <svg class="btn-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </button>
+
+        </form>
+
+        <div class="divider"><span>Already have an account?</span></div>
+        <div class="register-cta">
+          <p><a href="index.html" class="register-link">← Back to Login</a></p>
+        </div>
+
+      </div>
+      <p class="footer-note">© 2026 EduPortal. All rights reserved.</p>
+    </div>
+
+  </div>
+
+  <script src="js/auth.js"></script>
+  <script src="js/register.js"></script>
+</body>
+</html>
