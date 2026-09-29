@@ -1,13 +1,14 @@
 import { useState, useCallback } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useCourses } from '../context/CourseContext';
 import Sidebar from '../components/Sidebar';
 import StatCard from '../components/StatCard';
 import Toast from '../components/Toast';
 import {
-  getStudents, getCourses, getEnrollments, getProgress,
-  getCourseById, getCourseEnrollments, getCourseAverageProgress,
-  getStudentCourseProgress, deleteCourse, upsertCourse,
+  getProgress,
+  getStudentCourseProgress,
+  getCourseAverageProgress,
   getInitials, generateStudentId, formatCurrentDate,
   getGreeting, getProgressColor, formatTimeAgo,
 } from '../services/storage';
@@ -33,7 +34,7 @@ const AVATAR_COLORS = ['#A88F70','#8C7358','#6B5D50','#5C4E43','#9C8B7A','#7A685
 import { LEARNING_DOMAINS } from '../data/coursesData';
 
 /* ── Course Modal ─────────────────────────────── */
-function CourseModal({ course, onClose, onSave }) {
+function CourseModal({ course, onClose, onSave, saving }) {
   const isEdit = !!course?.id;
   const [form, setForm] = useState({
     id:          course?.id          || '',
@@ -137,7 +138,9 @@ function CourseModal({ course, onClose, onSave }) {
           </div>
           <div className="modal-footer">
             <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
-            <button id="course-save-btn" type="submit" className="btn-action">{isEdit ? 'Update Course' : 'Save Course'}</button>
+            <button id="course-save-btn" type="submit" className="btn-action" disabled={saving}>
+              {saving ? 'Saving…' : (isEdit ? 'Update Course' : 'Save Course')}
+            </button>
           </div>
         </form>
       </div>
@@ -146,13 +149,11 @@ function CourseModal({ course, onClose, onSave }) {
 }
 
 /* ── Course Detail Modal ──────────────────────── */
-function CourseDetailModal({ courseId, onClose }) {
-  if (!courseId) return null;
-  const course = getCourseById(courseId);
+function CourseDetailModal({ course, onClose, students, enrollments }) {
   if (!course) return null;
-  const students = getStudents();
-  const enrollments = getCourseEnrollments(courseId);
-  const avgProg = getCourseAverageProgress(courseId);
+  const courseEnrollments = enrollments.filter(e => e.courseId === course.id);
+  const progList = courseEnrollments.map(e => getStudentCourseProgress(e.studentEmail, course.id));
+  const avgProg = progList.length ? Math.round(progList.reduce((s, p) => s + p, 0) / progList.length) : 0;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -165,7 +166,7 @@ function CourseDetailModal({ courseId, onClose }) {
           <button className="modal-close" onClick={onClose} aria-label="Close">✕</button>
         </div>
         <div id="detail-stats-row" className="detail-stats-row">
-          <div className="detail-stat"><span className="detail-stat-num">{enrollments.length}</span><span className="detail-stat-label">Enrolled</span></div>
+          <div className="detail-stat"><span className="detail-stat-num">{courseEnrollments.length}</span><span className="detail-stat-label">Enrolled</span></div>
           <div className="detail-stat"><span className="detail-stat-num">{avgProg}%</span><span className="detail-stat-label">Avg Progress</span></div>
           {course.department && <div className="detail-stat"><span className="detail-stat-num" style={{ fontSize: '1rem' }}>{course.department}</span><span className="detail-stat-label">Department</span></div>}
           {course.duration && <div className="detail-stat"><span className="detail-stat-num" style={{ fontSize: '1rem' }}>{course.duration}</span><span className="detail-stat-label">Duration</span></div>}
@@ -176,12 +177,12 @@ function CourseDetailModal({ courseId, onClose }) {
               <tr><th>Student</th><th>Department</th><th>Enrolled On</th><th>Progress</th></tr>
             </thead>
             <tbody id="detail-students-tbody">
-              {enrollments.length === 0 ? (
+              {courseEnrollments.length === 0 ? (
                 <tr><td colSpan="4" className="table-empty">No students enrolled yet.</td></tr>
-              ) : enrollments.map(e => {
+              ) : courseEnrollments.map(e => {
                 const student = students.find(s => s.email === e.studentEmail);
                 if (!student) return null;
-                const prog = getStudentCourseProgress(e.studentEmail, courseId);
+                const prog = getStudentCourseProgress(e.studentEmail, course.id);
                 const joined = new Date(e.enrolledAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
                 return (
                   <tr key={e.id}>
@@ -209,11 +210,9 @@ function CourseDetailModal({ courseId, onClose }) {
 }
 
 /* ── Delete Confirmation Modal ────────────────── */
-function DeleteModal({ courseId, onCancel, onConfirm }) {
-  if (!courseId) return null;
-  const course = getCourseById(courseId);
+function DeleteModal({ course, enrollments, onCancel, onConfirm, deleting }) {
   if (!course) return null;
-  const count = getCourseEnrollments(courseId).length;
+  const count = enrollments.filter(e => e.courseId === course.id).length;
   return (
     <div className="modal-overlay" onClick={onCancel}>
       <div className="modal-box modal-sm" onClick={e => e.stopPropagation()}>
@@ -230,7 +229,9 @@ function DeleteModal({ courseId, onCancel, onConfirm }) {
         </div>
         <div className="modal-footer">
           <button className="btn-secondary" onClick={onCancel}>Cancel</button>
-          <button className="btn-action" style={{ background: 'linear-gradient(135deg,#9B3A3A,#C04545)' }} onClick={onConfirm}>Delete</button>
+          <button className="btn-action" style={{ background: 'linear-gradient(135deg,#9B3A3A,#C04545)' }} onClick={onConfirm} disabled={deleting}>
+            {deleting ? 'Deleting…' : 'Delete'}
+          </button>
         </div>
       </div>
     </div>
@@ -238,10 +239,7 @@ function DeleteModal({ courseId, onCancel, onConfirm }) {
 }
 
 /* ── Overview Section ─────────────────────────── */
-function OverviewSection({ refresh }) {
-  const students    = getStudents();
-  const courses     = getCourses();
-  const enrollments = getEnrollments();
+function OverviewSection({ courses, students, enrollments }) {
   const progressAll = getProgress();
   const avg = progressAll.length ? Math.round(progressAll.reduce((s, p) => s + p.percent, 0) / progressAll.length) : 0;
 
@@ -255,7 +253,7 @@ function OverviewSection({ refresh }) {
     .forEach(c => events.push({ text: `Course "${c.name}" created`, ts: c.createdAt, color: 'green-dot' }));
   enrollments.slice().sort((a, b) => b.enrolledAt - a.enrolledAt).slice(0, 3).forEach(e => {
     const st = students.find(s => s.email === e.studentEmail);
-    const co = getCourseById(e.courseId);
+    const co = courses.find(c => c.id === e.courseId);
     if (st && co) events.push({ text: `${st.fullname} enrolled in "${co.name}"`, ts: e.enrolledAt, color: 'orange-dot' });
   });
   events.sort((a, b) => b.ts - a.ts);
@@ -317,10 +315,7 @@ function OverviewSection({ refresh }) {
 }
 
 /* ── Courses Section ──────────────────────────── */
-function CoursesSection({ onAdd, onEdit, onView, onDelete }) {
-  const courses = getCourses();
-  const enrollments = getEnrollments();
-
+function CoursesSection({ courses, enrollments, onAdd, onEdit, onView, onDelete }) {
   return (
     <>
       <div className="section-header">
@@ -333,7 +328,9 @@ function CoursesSection({ onAdd, onEdit, onView, onDelete }) {
         <div id="admin-courses-grid" className="courses-grid">
           {courses.map(course => {
             const count = enrollments.filter(e => e.courseId === course.id).length;
-            const avgProg = getCourseAverageProgress(course.id);
+            const progList = enrollments.filter(e => e.courseId === course.id)
+              .map(e => getStudentCourseProgress(e.studentEmail, course.id));
+            const avgProg = progList.length ? Math.round(progList.reduce((s, p) => s + p, 0) / progList.length) : 0;
             return (
               <div key={course.id} className="course-card admin-course-card">
                 <div className="course-card-banner" style={{ background: course.color }}/>
@@ -353,9 +350,9 @@ function CoursesSection({ onAdd, onEdit, onView, onDelete }) {
                     <span>{avgProg}% avg</span>
                   </div>
                   <div className="course-card-footer">
-                    <button className="action-btn" onClick={() => onView(course.id)}>👁 View</button>
+                    <button className="action-btn" onClick={() => onView(course)}>👁 View</button>
                     <button className="action-btn" onClick={() => onEdit(course)}>✏ Edit</button>
-                    <button className="action-btn danger" onClick={() => onDelete(course.id)}>🗑 Delete</button>
+                    <button className="action-btn danger" onClick={() => onDelete(course)}>🗑 Delete</button>
                   </div>
                 </div>
               </div>
@@ -368,10 +365,8 @@ function CoursesSection({ onAdd, onEdit, onView, onDelete }) {
 }
 
 /* ── Students Section ─────────────────────────── */
-function StudentsSection() {
+function StudentsSection({ students, enrollments }) {
   const [search, setSearch] = useState('');
-  const students = getStudents();
-  const enrollments = getEnrollments();
 
   const filtered = students.filter(s => {
     if (!search) return true;
@@ -418,11 +413,7 @@ function StudentsSection() {
 }
 
 /* ── Enrollments Section ──────────────────────── */
-function EnrollmentsSection() {
-  const courses     = getCourses();
-  const students    = getStudents();
-  const enrollments = getEnrollments();
-
+function EnrollmentsSection({ courses, students, enrollments }) {
   return (
     <>
       <div className="section-header">
@@ -434,7 +425,8 @@ function EnrollmentsSection() {
         <div id="enrollment-courses-list">
           {courses.map(course => {
             const courseEnrollments = enrollments.filter(e => e.courseId === course.id);
-            const avgProg = getCourseAverageProgress(course.id);
+            const progList = courseEnrollments.map(e => getStudentCourseProgress(e.studentEmail, course.id));
+            const avgProg = progList.length ? Math.round(progList.reduce((s, p) => s + p, 0) / progList.length) : 0;
             const enrolledStudents = courseEnrollments.map(e => {
               const student = students.find(s => s.email === e.studentEmail);
               const prog = getStudentCourseProgress(e.studentEmail, course.id);
@@ -520,49 +512,83 @@ function SettingsSection({ toast }) {
 
 /* ── Main AdminDashboard ──────────────────────── */
 export default function AdminDashboard() {
-  const { user, loading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const {
+    courses, students, enrollments,
+    loading: dataLoading,
+    upsertCourse, deleteCourse,
+  } = useCourses();
+
   const [activeSection, setActiveSection] = useState('overview');
   const [toastMsg, setToastMsg] = useState('');
   const [courseModal, setCourseModal] = useState(null);   // null | course object (null id = new)
-  const [detailCourseId, setDetailCourseId] = useState(null);
-  const [deleteCourseId, setDeleteCourseId] = useState(null);
-  const [, forceUpdate] = useState(0);
+  const [detailCourse, setDetailCourse] = useState(null);
+  const [deleteCourseObj, setDeleteCourseObj] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const showToast = useCallback((msg) => setToastMsg(msg), []);
   const clearToast = useCallback(() => setToastMsg(''), []);
-  const refresh = useCallback(() => forceUpdate(n => n + 1), []);
 
   const breadcrumbLabels = {
     overview: 'Overview', courses: 'Course Management',
     students: 'Student Management', enrollments: 'Enrollment Monitoring', settings: 'System Settings',
   };
 
-  if (loading) return null;
+  if (authLoading || dataLoading) return null;
   if (!user || user.role !== 'admin') return <Navigate to="/" replace/>;
 
-  const handleCourseModalSave = (data) => {
-    upsertCourse(data);
-    setCourseModal(null);
-    refresh();
-    showToast(data.id ? '✅ Course updated successfully!' : '✅ Course created successfully!');
+  const handleCourseModalSave = async (data) => {
+    setSaving(true);
+    try {
+      await upsertCourse(data);
+      setCourseModal(null);
+      showToast(data.id ? '✅ Course updated successfully!' : '✅ Course created successfully!');
+    } catch (err) {
+      console.error('Failed to save course:', err);
+      showToast('❌ Failed to save course. Is the API running?');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDeleteConfirm = () => {
-    if (!deleteCourseId) return;
-    deleteCourse(deleteCourseId);
-    setDeleteCourseId(null);
-    refresh();
-    showToast('🗑️ Course deleted.');
+  const handleDeleteConfirm = async () => {
+    if (!deleteCourseObj) return;
+    setDeleting(true);
+    try {
+      await deleteCourse(deleteCourseObj.id);
+      setDeleteCourseObj(null);
+      showToast('🗑️ Course deleted.');
+    } catch (err) {
+      console.error('Failed to delete course:', err);
+      showToast('❌ Failed to delete course. Is the API running?');
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const renderSection = () => {
     switch (activeSection) {
-      case 'overview':    return <OverviewSection key={activeSection} refresh={refresh}/>;
-      case 'courses':     return <CoursesSection key={activeSection} onAdd={() => setCourseModal({})} onEdit={c => setCourseModal(c)} onView={id => setDetailCourseId(id)} onDelete={id => setDeleteCourseId(id)}/>;
-      case 'students':    return <StudentsSection key={activeSection}/>;
-      case 'enrollments': return <EnrollmentsSection key={activeSection}/>;
-      case 'settings':    return <SettingsSection key={activeSection} toast={showToast}/>;
-      default:            return null;
+      case 'overview':
+        return <OverviewSection key={activeSection} courses={courses} students={students} enrollments={enrollments}/>;
+      case 'courses':
+        return <CoursesSection
+          key={activeSection}
+          courses={courses}
+          enrollments={enrollments}
+          onAdd={() => setCourseModal({})}
+          onEdit={c => setCourseModal(c)}
+          onView={c => setDetailCourse(c)}
+          onDelete={c => setDeleteCourseObj(c)}
+        />;
+      case 'students':
+        return <StudentsSection key={activeSection} students={students} enrollments={enrollments}/>;
+      case 'enrollments':
+        return <EnrollmentsSection key={activeSection} courses={courses} students={students} enrollments={enrollments}/>;
+      case 'settings':
+        return <SettingsSection key={activeSection} toast={showToast}/>;
+      default:
+        return null;
     }
   };
 
@@ -595,13 +621,13 @@ export default function AdminDashboard() {
 
       {/* Modals */}
       {courseModal !== null && (
-        <CourseModal course={courseModal} onClose={() => setCourseModal(null)} onSave={handleCourseModalSave}/>
+        <CourseModal course={courseModal} onClose={() => setCourseModal(null)} onSave={handleCourseModalSave} saving={saving}/>
       )}
-      {detailCourseId && (
-        <CourseDetailModal courseId={detailCourseId} onClose={() => setDetailCourseId(null)}/>
+      {detailCourse && (
+        <CourseDetailModal course={detailCourse} onClose={() => setDetailCourse(null)} students={students} enrollments={enrollments}/>
       )}
-      {deleteCourseId && (
-        <DeleteModal courseId={deleteCourseId} onCancel={() => setDeleteCourseId(null)} onConfirm={handleDeleteConfirm}/>
+      {deleteCourseObj && (
+        <DeleteModal course={deleteCourseObj} enrollments={enrollments} onCancel={() => setDeleteCourseObj(null)} onConfirm={handleDeleteConfirm} deleting={deleting}/>
       )}
 
       <Toast message={toastMsg} onHide={clearToast}/>

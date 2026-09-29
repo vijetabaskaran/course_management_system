@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { findStudentByEmail, findStudentByUsername, saveStudent, hashPassword } from '../services/storage';
+import { hashPassword } from '../services/storage';
+import api from '../services/api';
+import { useCourses } from '../context/CourseContext';
 import '../styles/auth.css';
 
 const DEPARTMENTS = [
@@ -30,6 +32,7 @@ function getStrength(pw) {
 
 export default function Register() {
   const { user } = useAuth();
+  const { addStudent } = useCourses();
   const navigate = useNavigate();
 
   const [form, setForm] = useState({ fullname: '', email: '', username: '', department: '', password: '', confirm: '' });
@@ -52,7 +55,9 @@ export default function Register() {
     if (k === 'password') setStrength(v ? getStrength(v) : -1);
   };
 
-  const validateAll = () => {
+  const validateAll = async () => {
+    // always check against the latest students stored in db.json
+    const { data: existingStudents } = await api.get('/students');
     const e = {};
     const { fullname, email, username, department, password, confirm } = form;
     if (!fullname.trim()) e.fullname = 'Full name is required.';
@@ -61,12 +66,12 @@ export default function Register() {
 
     if (!email.trim()) e.email = 'Email address is required.';
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) e.email = 'Please enter a valid email address.';
-    else if (findStudentByEmail(email)) e.email = 'This email is already registered. Please login instead.';
+    else if (existingStudents.some(s => s.email.toLowerCase() === email.trim().toLowerCase())) e.email = 'This email is already registered. Please login instead.';
 
     if (!username.trim()) e.username = 'Username is required.';
     else if (username.length < 3) e.username = 'Username must be at least 3 characters.';
     else if (!/^[a-zA-Z0-9_.-]+$/.test(username)) e.username = 'Username can only contain letters, numbers, underscores, hyphens, and dots.';
-    else if (findStudentByUsername(username)) e.username = 'This username is already taken.';
+    else if (existingStudents.some(s => s.username.toLowerCase() === username.trim().toLowerCase())) e.username = 'This username is already taken.';
 
     if (!department) e.department = 'Please select your department.';
     if (!password) e.password = 'Password is required.';
@@ -85,11 +90,19 @@ export default function Register() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setAlert(null);
-    if (!validateAll()) { setAlert({ type: 'error', message: 'Please fix the errors above.' }); return; }
     setLoading(true);
+    let valid = false;
+    try {
+      valid = await validateAll();
+    } catch {
+      setLoading(false);
+      setAlert({ type: 'error', message: 'Cannot reach the server. Make sure the mock API is running (npm start in mock-api).' });
+      return;
+    }
+    if (!valid) { setLoading(false); setAlert({ type: 'error', message: 'Please fix the errors above.' }); return; }
     await new Promise(r => setTimeout(r, 900));
     try {
-      saveStudent({
+      await addStudent({
         fullname:  form.fullname.trim(),
         email:     form.email.trim().toLowerCase(),
         username:  form.username.trim().toLowerCase(),
