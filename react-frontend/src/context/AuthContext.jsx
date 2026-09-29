@@ -1,7 +1,24 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { getSession, createSession, destroySession, authenticateAdmin, authenticateStudent } from '../services/storage';
+import { getSession, createSession, destroySession, authenticateAdmin, hashPassword } from '../services/storage';
+import api from '../services/api';
 
 const AuthContext = createContext(null);
+
+// Student login: check the students stored in db.json (mock API)
+async function authenticateStudentFromApi(email, password) {
+  const { data: students } = await api.get('/students');
+  const student = students.find(s => s.email.toLowerCase() === email.toLowerCase());
+  if (!student) return null;
+  if (student.password !== hashPassword(password)) return null;
+  return {
+    email: student.email,
+    username: student.username,
+    fullname: student.fullname,
+    department: student.department || '',
+    role: 'student',
+    createdAt: student.createdAt,
+  };
+}
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -16,8 +33,13 @@ export function AuthProvider({ children }) {
   const login = useCallback(async (email, password, role, remember = false) => {
     await new Promise(r => setTimeout(r, 600));
     let authenticated = null;
-    if (role === 'admin') authenticated = authenticateAdmin(email, password);
-    else authenticated = authenticateStudent(email, password);
+    try {
+      if (role === 'admin') authenticated = authenticateAdmin(email, password); // admin stays hardcoded
+      else authenticated = await authenticateStudentFromApi(email, password);
+    } catch (err) {
+      console.error('Login failed - is the mock API running on port 5000?', err);
+      return { success: false };
+    }
     if (!authenticated) return { success: false };
     createSession(authenticated, remember);
     setUser(authenticated);

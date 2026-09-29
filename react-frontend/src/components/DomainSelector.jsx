@@ -1,9 +1,6 @@
 import { LEARNING_DOMAINS } from '../data/coursesData';
-import { getCourses } from '../services/storage';
 
-export default function DomainSelector({ selectedDomain, onSelectDomain }) {
-  const allCourses = getCourses();
-
+export default function DomainSelector({ selectedDomain, onSelectDomain, allCourses = [] }) {
   // Count courses per domain
   const domainCounts = LEARNING_DOMAINS.reduce((acc, d) => {
     acc[d.name] = allCourses.filter(c => (c.domain || c.category || '').toLowerCase() === d.name.toLowerCase()).length;

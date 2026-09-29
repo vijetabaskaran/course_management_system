@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useCourses } from '../context/CourseContext';
 import Sidebar from '../components/Sidebar';
 import StatCard from '../components/StatCard';
 import Toast from '../components/Toast';
@@ -9,10 +10,8 @@ import CourseDetailModal from '../components/CourseDetailModal';
 import CourseLearningView from '../components/CourseLearningView';
 import CertificateModal from '../components/CertificateModal';
 import {
-  getCourses, getCourseById,
-  getStudentEnrollments, getStudentOverallProgress,
-  getStudentCourseProgress, getCourseEnrollments,
-  getStudentCourseUnitProgress, enrollStudent, isEnrolled,
+  getStudentCourseProgress,
+  getStudentCourseUnitProgress,
   getInitials, generateStudentId, formatCurrentDate,
   getGreeting, getProgressColor, getProgressLabel,
 } from '../services/storage';
@@ -39,11 +38,10 @@ const STUDENT_SECTIONS = [
 ];
 
 /* ── Overview Section ────────────────────────────── */
-function OverviewSection({ user, onBrowse, onStartLearning, onViewCertificate }) {
-  const enrollments = getStudentEnrollments(user.email);
-  const overall = getStudentOverallProgress(user.email);
-  const allCourses = getCourses();
+function OverviewSection({ user, allCourses, enrollments, onBrowse, onStartLearning, onViewCertificate }) {
   const recentEnrolled = enrollments.slice().sort((a, b) => b.enrolledAt - a.enrolledAt).slice(0, 5);
+  const progValues = enrollments.map(e => getStudentCourseProgress(user.email, e.courseId));
+  const overall = progValues.length ? Math.round(progValues.reduce((s, p) => s + p, 0) / progValues.length) : 0;
 
   return (
     <>
@@ -104,7 +102,7 @@ function OverviewSection({ user, onBrowse, onStartLearning, onViewCertificate })
           ) : (
             <div className="course-list">
               {recentEnrolled.map(e => {
-                const course = getCourseById(e.courseId);
+                const course = allCourses.find(c => c.id === e.courseId);
                 if (!course) return null;
                 const prog = getStudentCourseProgress(user.email, course.id);
                 const unitProg = getStudentCourseUnitProgress(user.email, course.id);
@@ -168,7 +166,7 @@ function OverviewSection({ user, onBrowse, onStartLearning, onViewCertificate })
 
               <div className="progress-course-list">
                 {enrollments.map(e => {
-                  const course = getCourseById(e.courseId);
+                  const course = allCourses.find(c => c.id === e.courseId);
                   if (!course) return null;
                   const prog = getStudentCourseProgress(user.email, course.id);
                   const unitProg = getStudentCourseUnitProgress(user.email, course.id);
@@ -202,13 +200,11 @@ function OverviewSection({ user, onBrowse, onStartLearning, onViewCertificate })
 }
 
 /* ── Browse Courses Section ──────────────────────── */
-function BrowseSection({ user, onEnrolled, onStartLearning, onInspectCourse, toast }) {
+function BrowseSection({ user, allCourses, enrollments, onEnrolled, onStartLearning, onInspectCourse, toast }) {
+  const { enrollStudent, isEnrolled } = useCourses();
   const [selectedDomain, setSelectedDomain] = useState(null);
   const [search, setSearch] = useState('');
   const [enrolling, setEnrolling] = useState(null);
-  const [, forceUpdate] = useState(0);
-
-  const allCourses = getCourses();
 
   const courses = allCourses.filter(c => {
     const courseDomain = (c.domain || c.category || '').toLowerCase();
@@ -223,17 +219,20 @@ function BrowseSection({ user, onEnrolled, onStartLearning, onInspectCourse, toa
       (c.instructor || '').toLowerCase().includes(q);
   });
 
-  const handleEnroll = (courseId) => {
-    const course = getCourseById(courseId);
+  const handleEnroll = async (courseId) => {
+    const course = allCourses.find(c => c.id === courseId);
     if (!course || isEnrolled(user.email, courseId)) return;
     setEnrolling(courseId);
-    setTimeout(() => {
-      enrollStudent(user.email, courseId);
-      setEnrolling(null);
-      forceUpdate(n => n + 1);
+    try {
+      await enrollStudent(user.email, courseId);
       onEnrolled();
       toast(`Successfully enrolled in "${course.title || course.name}"!`);
-    }, 400);
+    } catch (err) {
+      console.error('Enrollment failed:', err);
+      toast('Failed to enroll. Is the API running?');
+    } finally {
+      setEnrolling(null);
+    }
   };
 
   return (
@@ -249,6 +248,7 @@ function BrowseSection({ user, onEnrolled, onStartLearning, onInspectCourse, toa
       <DomainSelector
         selectedDomain={selectedDomain}
         onSelectDomain={setSelectedDomain}
+        allCourses={allCourses}
       />
 
       {/* 2. Course Search & Filter Bar */}
@@ -285,7 +285,7 @@ function BrowseSection({ user, onEnrolled, onStartLearning, onInspectCourse, toa
         <div className="courses-grid">
           {courses.map(course => {
             const enrolled = isEnrolled(user.email, course.id);
-            const count = getCourseEnrollments(course.id).length;
+            const count = enrollments.filter(e => e.courseId === course.id).length;
             const units = getCourseUnits(course);
 
             return (
@@ -330,8 +330,10 @@ function BrowseSection({ user, onEnrolled, onStartLearning, onInspectCourse, toa
 }
 
 /* ── My Courses Section ──────────────────────────── */
-function MyCoursesSection({ user, onStartLearning, onViewCertificate }) {
-  const enrollments = getStudentEnrollments(user.email).slice().sort((a, b) => b.enrolledAt - a.enrolledAt);
+function MyCoursesSection({ user, allCourses, enrollments, onStartLearning, onViewCertificate }) {
+  const myEnrollments = enrollments
+    .filter(e => e.studentEmail === user.email)
+    .slice().sort((a, b) => b.enrolledAt - a.enrolledAt);
 
   return (
     <>
@@ -342,15 +344,15 @@ function MyCoursesSection({ user, onStartLearning, onViewCertificate }) {
         </div>
       </div>
 
-      {enrollments.length === 0 ? (
+      {myEnrollments.length === 0 ? (
         <div className="empty-state">
           <h3>No enrolled courses</h3>
           <p>Browse courses by domain and enroll to start your learning journey.</p>
         </div>
       ) : (
         <div className="courses-grid">
-          {enrollments.map(e => {
-            const course = getCourseById(e.courseId);
+          {myEnrollments.map(e => {
+            const course = allCourses.find(c => c.id === e.courseId);
             if (!course) return null;
             const prog = getStudentCourseProgress(user.email, course.id);
             const unitProg = getStudentCourseUnitProgress(user.email, course.id);
@@ -393,7 +395,7 @@ function MyCoursesSection({ user, onStartLearning, onViewCertificate }) {
                     {prog === 100 ? (
                       <div className="completed-actions-row">
                         <button className="btn-action btn-gold btn-sm" onClick={() => onViewCertificate(course)}>
-                          🏆 View & Download Certificate
+                          🏆 View &amp; Download Certificate
                         </button>
                       </div>
                     ) : (
@@ -413,9 +415,10 @@ function MyCoursesSection({ user, onStartLearning, onViewCertificate }) {
 }
 
 /* ── Profile Section ─────────────────────────────── */
-function ProfileSection({ user }) {
-  const enrollments = getStudentEnrollments(user.email);
-  const overall = getStudentOverallProgress(user.email);
+function ProfileSection({ user, enrollments }) {
+  const myEnrollments = enrollments.filter(e => e.studentEmail === user.email);
+  const progValues = myEnrollments.map(e => getStudentCourseProgress(user.email, e.courseId));
+  const overall = progValues.length ? Math.round(progValues.reduce((s, p) => s + p, 0) / progValues.length) : 0;
   const initials = getInitials(user.fullname);
   const studentId = generateStudentId(user.username);
   const joined = user.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'N/A';
@@ -439,7 +442,7 @@ function ProfileSection({ user }) {
           { label: 'Username', value: user.username, id: 'profile-username' },
           { label: 'Department', value: user.department || 'Not specified', id: 'profile-department' },
           { label: 'Email', value: user.email, id: 'profile-email-detail' },
-          { label: 'Enrolled Courses', value: enrollments.length, id: 'profile-enrolled-count' },
+          { label: 'Enrolled Courses', value: myEnrollments.length, id: 'profile-enrolled-count' },
           { label: 'Member Since', value: joined, id: 'profile-joined' },
           { label: 'Overall Progress', value: `${overall}%`, id: 'profile-progress' },
         ].map(({ label, value, id }) => (
@@ -455,17 +458,22 @@ function ProfileSection({ user }) {
 
 /* ── Main StudentDashboard ───────────────────────── */
 export default function StudentDashboard() {
-  const { user, loading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const {
+    courses: allCourses,
+    enrollments,
+    loading: dataLoading,
+    enrollStudent,
+  } = useCourses();
+
   const [activeSection, setActiveSection] = useState('overview');
   const [selectedCourseForLearning, setSelectedCourseForLearning] = useState(null);
   const [inspectCourseModal, setInspectCourseModal] = useState(null);
   const [certModalCourse, setCertModalCourse] = useState(null);
   const [toastMsg, setToastMsg] = useState('');
-  const [, forceUpdate] = useState(0);
 
   const showToast = useCallback((msg) => setToastMsg(msg), []);
   const clearToast = useCallback(() => setToastMsg(''), []);
-  const refresh = useCallback(() => forceUpdate(n => n + 1), []);
 
   const handleStartLearning = (course) => {
     setSelectedCourseForLearning(course);
@@ -480,17 +488,24 @@ export default function StudentDashboard() {
     setCertModalCourse(course);
   };
 
-  const handleEnrollFromModal = (courseId) => {
+  const handleEnrollFromModal = async (courseId) => {
     setInspectCourseModal(null);
-    enrollStudent(user.email, courseId);
-    refresh();
-    const course = getCourseById(courseId);
-    showToast(`Successfully enrolled in "${course.title || course.name}"!`);
-    handleStartLearning(course);
+    try {
+      await enrollStudent(user.email, courseId);
+      const course = allCourses.find(c => c.id === courseId);
+      showToast(`Successfully enrolled in "${course?.title || course?.name}"!`);
+      if (course) handleStartLearning(course);
+    } catch (err) {
+      console.error('Enrollment failed:', err);
+      showToast('Failed to enroll. Is the API running?');
+    }
   };
 
-  if (loading) return null;
+  if (authLoading || dataLoading) return null;
   if (!user || user.role !== 'student') return <Navigate to="/" replace/>;
+
+  // Student's own enrollments
+  const myEnrollments = enrollments.filter(e => e.studentEmail === user.email);
 
   // Render course learning view if section is 'learn'
   if (activeSection === 'learn' && selectedCourseForLearning) {
@@ -501,12 +516,10 @@ export default function StudentDashboard() {
         onBack={() => {
           setSelectedCourseForLearning(null);
           setActiveSection('courses');
-          refresh();
         }}
         onCompleteCourse={(c) => {
           showToast(`🎉 Congratulations! You completed "${c.title || c.name}"!`);
           setCertModalCourse(c);
-          refresh();
         }}
         onViewCertificate={(c) => setCertModalCourse(c)}
       />
@@ -524,6 +537,8 @@ export default function StudentDashboard() {
           <OverviewSection
             key={activeSection}
             user={user}
+            allCourses={allCourses}
+            enrollments={myEnrollments}
             onBrowse={() => setActiveSection('browse')}
             onStartLearning={handleStartLearning}
             onViewCertificate={handleViewCertificate}
@@ -534,7 +549,9 @@ export default function StudentDashboard() {
           <BrowseSection
             key={activeSection}
             user={user}
-            onEnrolled={refresh}
+            allCourses={allCourses}
+            enrollments={enrollments}
+            onEnrolled={() => {}}
             onStartLearning={handleStartLearning}
             onInspectCourse={handleInspectCourse}
             toast={showToast}
@@ -545,12 +562,14 @@ export default function StudentDashboard() {
           <MyCoursesSection
             key={activeSection}
             user={user}
+            allCourses={allCourses}
+            enrollments={enrollments}
             onStartLearning={handleStartLearning}
             onViewCertificate={handleViewCertificate}
           />
         );
       case 'profile':  
-        return <ProfileSection key={activeSection} user={user}/>;
+        return <ProfileSection key={activeSection} user={user} enrollments={enrollments}/>;
       default:         
         return null;
     }

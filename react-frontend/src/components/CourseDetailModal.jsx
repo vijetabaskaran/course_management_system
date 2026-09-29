@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { getCourseUnits } from '../data/coursesData';
-import { isEnrolled } from '../services/storage';
+import { useCourses } from '../context/CourseContext';
 
 export default function CourseDetailModal({ course, user, onClose, onEnroll }) {
   useEffect(() => {
@@ -12,6 +12,7 @@ export default function CourseDetailModal({ course, user, onClose, onEnroll }) {
 
   if (!course) return null;
 
+  const { isEnrolled } = useCourses();
   const enrolled = user ? isEnrolled(user.email, course.id) : false;
   const units = getCourseUnits(course);
   const totalQuizzes = units.reduce((acc, u) => acc + (u.quiz ? 1 : 0), 0);
