@@ -37,7 +37,7 @@ export function AuthProvider({ children }) {
       if (role === 'admin') authenticated = authenticateAdmin(email, password); // admin stays hardcoded
       else authenticated = await authenticateStudentFromApi(email, password);
     } catch (err) {
-      console.error('Login failed - is the mock API running on port 5000?', err);
+      console.error('Login failed - is the backend running on port 4000?', err);
       return { success: false };
     }
     if (!authenticated) return { success: false };
