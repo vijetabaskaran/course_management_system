@@ -96,7 +96,7 @@ export default function Register() {
       valid = await validateAll();
     } catch {
       setLoading(false);
-      setAlert({ type: 'error', message: 'Cannot reach the server. Make sure the mock API is running (npm start in mock-api).' });
+      setAlert({ type: 'error', message: 'Cannot reach the server. Make sure the backend is running (cd backend && npm start).' });
       return;
     }
     if (!valid) { setLoading(false); setAlert({ type: 'error', message: 'Please fix the errors above.' }); return; }

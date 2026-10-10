@@ -54,7 +54,7 @@ export function CourseProvider({ children }) {
       setError(null);
     } catch (err) {
       console.error("Failed to load data:", err);
-      setError("Unable to load data. Is the mock API running on port 5000?");
+      setError("Unable to load data. Is the backend running? (cd backend && npm start)");
     } finally {
       setLoading(false);
     }
