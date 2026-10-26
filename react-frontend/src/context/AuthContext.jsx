@@ -4,20 +4,45 @@ import api from '../services/api';
 
 const AuthContext = createContext(null);
 
-// Student login: check the students stored in db.json (mock API)
+// Student login: authenticate via backend /students/login endpoint
 async function authenticateStudentFromApi(email, password) {
-  const { data: students } = await api.get('/students');
-  const student = students.find(s => s.email.toLowerCase() === email.toLowerCase());
-  if (!student) return null;
-  if (student.password !== hashPassword(password)) return null;
-  return {
-    email: student.email,
-    username: student.username,
-    fullname: student.fullname,
-    department: student.department || '',
-    role: 'student',
-    createdAt: student.createdAt,
-  };
+  try {
+    const res = await api.post('/students/login', { email, password });
+    if (res.data && res.data.student) {
+      const student = res.data.student;
+      return {
+        email: student.email,
+        username: student.username,
+        fullname: student.fullname,
+        department: student.department || '',
+        role: 'student',
+        createdAt: student.createdAt,
+      };
+    }
+  } catch (err) {
+    if (err.response && (err.response.status === 401 || err.response.status === 400)) {
+      return null;
+    }
+    // Backward-compatible fallback for mock API or legacy servers
+    try {
+      const { data: students } = await api.get('/students');
+      const student = students.find(s => s.email.toLowerCase() === email.toLowerCase());
+      if (student && student.password && student.password === hashPassword(password)) {
+        return {
+          email: student.email,
+          username: student.username,
+          fullname: student.fullname,
+          department: student.department || '',
+          role: 'student',
+          createdAt: student.createdAt,
+        };
+      }
+    } catch {
+      // ignore fallback error
+    }
+    return null;
+  }
+  return null;
 }
 
 export function AuthProvider({ children }) {
