@@ -121,9 +121,9 @@ export function CourseProvider({ children }) {
   async function deleteCourse(id) {
     await api.delete(`/courses/${id}`);
 
-    // remove this course's enrollments too (old deleteCourse did this)
+    // remove this course's enrollments too (handles both backend cascade and individual deletion)
     const related = enrollments.filter((e) => e.courseId === id);
-    await Promise.all(related.map((e) => api.delete(`/enrollments/${e.id}`)));
+    await Promise.all(related.map((e) => api.delete(`/enrollments/${e.id}`).catch(() => {})));
 
     saveProgress(getProgress().filter((p) => p.courseId !== id));
 
