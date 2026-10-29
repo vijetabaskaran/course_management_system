@@ -5,18 +5,20 @@
  * Entry point. Loads env, configures middleware, mounts routes, starts listening.
  * Keep this file thin: configuration belongs in config/, routes in routes/.
  */
-require('dotenv').config();
+const path       = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const express    = require('express');
 const cors       = require('cors');
 const morgan     = require('morgan');
-const path       = require('path');
 
 const courseRoutes     = require('./routes/courseRoutes');
 const studentRoutes    = require('./routes/studentRoutes');
 const enrollmentRoutes = require('./routes/enrollmentRoutes');
+const authRoutes       = require('./routes/authRoutes');
 const { notFound, globalError } = require('./middleware/errorMiddleware');
 const { checkDBHealth }         = require('./config/db');
+
 
 const app  = express();
 const PORT = process.env.PORT || 4000;
@@ -104,6 +106,8 @@ app.get('/api/health', (req, res) => {
 // ── API Routes ────────────────────────────────────────────────────────────────
 // NOTE: We keep the existing flat paths (/courses, /students, /enrollments)
 // so the React frontend (api.js baseURL http://localhost:4000) needs no changes.
+// Task 9 & 10: Auth routes are mounted under /api/v1/auth.
+app.use('/api/v1/auth',  authRoutes);
 app.use('/courses',     courseRoutes);
 app.use('/students',    studentRoutes);
 app.use('/enrollments', enrollmentRoutes);
@@ -124,9 +128,12 @@ function startServer(port = PORT) {
     console.log('');
     console.log('  GET  /courses');
     console.log('  GET  /students');
-    console.log('  POST /students/login');
+    console.log('  POST /students/login      (legacy)');
+    console.log('  POST /api/v1/auth/register  (Task 9 — bcrypt + JWT)');
+    console.log('  POST /api/v1/auth/login     (Task 9/10 — bcrypt + JWT)');
     console.log('  GET  /enrollments');
     console.log('  GET  /api/health');
+
     console.log(line + '\n');
   });
 }
