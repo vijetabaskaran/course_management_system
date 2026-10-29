@@ -39,6 +39,28 @@
       "role": "student",
       "createdAt": 1791619629968,
       "id": "zladshsx9hd"
+    },
+    {
+      "id": "6chwu4rjv64",
+      "fullname": "Test Student",
+      "email": "test.student@example.com",
+      "username": "teststudent",
+      "department": "Computer Science",
+      "password": "$2b$12$ARTY21bflD3qBEYMQnQcXevWVvJhfUDNTrLabeQ85MsWjIJ6KMJi2",
+      "role": "student",
+      "authScheme": "bcrypt",
+      "createdAt": 1793002230295
+    },
+    {
+      "id": "aiz1eu43cn",
+      "fullname": "Test Student",
+      "email": "teststudent01@example.com",
+      "username": "teststudent01",
+      "department": "Computer Science",
+      "password": "$2b$12$RKXbu7twr0HBr9oDW6KJl.lassNNXT.52.26JysV6m0xayUJT0X/O",
+      "role": "student",
+      "authScheme": "bcrypt",
+      "createdAt": 1793203967894
     }
   ],
   "courses": [
@@ -206,6 +228,21 @@
       "createdAt": 1791619726067,
       "id": "CRS-kqzasar13y",
       "updatedAt": 1791619751441
+    },
+    {
+      "code": "TEST101",
+      "title": "Introduction to Python - Updated",
+      "description": "Updated Python programming fundamentals",
+      "instructor": "Test Instructor",
+      "department": "Computer Science",
+      "duration": "8 weeks",
+      "id": "CRS-kw9n7950aq",
+      "name": "Introduction to Python - Updated",
+      "domain": "General",
+      "category": "General",
+      "color": "linear-gradient(135deg,#D8C3A5,#A88F70)",
+      "createdAt": 1793205095316,
+      "updatedAt": 1793205343941
     }
   ],
   "enrollments": [
