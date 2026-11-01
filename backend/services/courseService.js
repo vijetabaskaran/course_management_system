@@ -1,8 +1,8 @@
-﻿'use strict';
+'use strict';
 /**
- * services/courseService.js
+ * services/courseService.js  (MongoDB/Mongoose version)
  * Business logic for courses.
- * Controllers call service functions; service functions call model functions.
+ * All model operations are now async/await.
  */
 const courseModel     = require('../models/courseModel');
 const enrollmentModel = require('../models/enrollmentModel');
@@ -21,29 +21,33 @@ const GRADIENT_PALETTES = [
 
 /** Normalise title/name/domain/code so both old and new frontend fields work. */
 function normalize(c) {
+  if (!c) return null;
   return {
     ...c,
     name:   c.name  || c.title,
     title:  c.title || c.name,
     domain: c.domain || c.category || 'General',
     code:   c.code  || `CRS-${c.id}`,
+    // Ensure 'id' is always the legacyId string
+    id:     c.id || c.legacyId,
   };
 }
 
-function getAll() {
-  return courseModel.findAll().map(normalize);
+async function getAll() {
+  const courses = await courseModel.findAll();
+  return courses.map(normalize);
 }
 
-function getById(id) {
-  const course = courseModel.findById(id);
+async function getById(id) {
+  const course = await courseModel.findById(id);
   if (!course) return null;
   return normalize(course);
 }
 
 /** Create a course, assigning defaults for missing fields. */
-function create(body) {
-  const { id: _ignored, ...rest } = body; // never let the client dictate the ID
-  const title  = rest.title || rest.name;
+async function create(body) {
+  const { id: _ignored, ...rest } = body;
+  const title = rest.title || rest.name;
   if (!title || !title.trim()) {
     const err = new Error('Course name / title is required.');
     err.statusCode = 400;
@@ -55,9 +59,8 @@ function create(body) {
     throw err;
   }
 
-  const allCourses = courseModel.findAll();
+  const allCourses = await courseModel.findAll();
 
-  // Duplicate code check
   const duplicate = allCourses.find(
     c => c.code && c.code.toLowerCase() === rest.code.trim().toLowerCase()
   );
@@ -80,21 +83,20 @@ function create(body) {
     createdAt: rest.createdAt || Date.now(),
   };
 
-  courseModel.create(course);
+  await courseModel.create(course);
   return normalize(course);
 }
 
 /** Replace a course's fields while preserving its ID. */
-function update(id, body) {
-  const existing = courseModel.findById(id);
+async function update(id, body) {
+  const existing = await courseModel.findById(id);
   if (!existing) return null;
 
   const title  = body.title || body.name || existing.title || existing.name;
   const domain = body.domain || body.category || existing.domain || 'General';
 
-  // Duplicate code check (ignore the course being updated)
   if (body.code && body.code.trim().toLowerCase() !== (existing.code || '').toLowerCase()) {
-    const dup = courseModel.findByCode(body.code.trim());
+    const dup = await courseModel.findByCode(body.code.trim());
     if (dup && dup.id !== id) {
       const err = new Error(`A course with code "${body.code}" already exists.`);
       err.statusCode = 409;
@@ -105,28 +107,32 @@ function update(id, body) {
   const updated = {
     ...existing,
     ...body,
-    id,         // never change the ID
-    title:      title ? title.trim() : existing.title,
-    name:       title ? title.trim() : existing.name,
+    id,           // never change the ID
+    legacyId: id, // keep legacyId in sync
+    title:    title ? title.trim() : existing.title,
+    name:     title ? title.trim() : existing.name,
     domain,
-    category:   body.category || domain,
-    updatedAt:  Date.now(),
+    category: body.category || domain,
+    updatedAt: Date.now(),
   };
 
-  courseModel.update(id, updated);
+  await courseModel.update(id, updated);
   return normalize(updated);
 }
 
 /**
- * Delete a course AND its related enrollments.
- * The frontend's localStorage progress records are keyed per-student per-course;
- * they are not stored on the backend and will remain in the browser until manually cleared.
+ * Delete a course AND its related enrollments (and learning progress).
  */
-function remove(id) {
-  const existing = courseModel.findById(id);
+async function remove(id) {
+  const existing = await courseModel.findById(id);
   if (!existing) return null;
-  const deleted     = courseModel.remove(id);
-  const removedEnrollments = enrollmentModel.removeByCourse(id);
+  const deleted = await courseModel.remove(id);
+  const removedEnrollments = await enrollmentModel.removeByCourse(id);
+  // Also remove learning progress records for this course
+  try {
+    const learningProgressModel = require('../models/learningProgressModel');
+    await learningProgressModel.removeByCourse(id);
+  } catch (e) { /* non-critical */ }
   return { deleted, removedEnrollments };
 }
 

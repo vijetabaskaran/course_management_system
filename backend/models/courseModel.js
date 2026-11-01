@@ -1,48 +1,97 @@
-﻿'use strict';
+'use strict';
 /**
- * models/courseModel.js
- * Course data-access functions. All reads/writes are through config/db.js.
- * Business logic lives in services/; this layer only handles persistence.
+ * models/courseModel.js  (MongoDB/Mongoose version)
+ *
+ * Replaces the JSON-file implementation with Mongoose operations on the
+ * 'courses' collection (Course model).
+ *
+ * API surface is 100% backwards-compatible with the original JSON version.
+ * All functions return plain objects with 'id' set to the legacyId string
+ * (e.g., 'CRS-101') so the frontend continues working without modification.
  */
-const { readDB, writeDB } = require('../config/db');
+const Course = require('./schemas/CourseSchema');
 
-function findAll() {
-  return readDB().courses;
+/** Normalise a Mongoose document to match the original plain object shape. */
+function toPlain(doc) {
+  if (!doc) return null;
+  const obj = doc.toObject ? doc.toObject({ virtuals: true }) : { ...doc };
+  // Ensure 'id' is the legacyId string (virtual already does this, but be explicit)
+  obj.id = obj.legacyId || String(obj._id);
+  delete obj._id;
+  delete obj.__v;
+  return obj;
 }
 
-function findById(id) {
-  return readDB().courses.find(c => c.id === id) || null;
+async function findAll() {
+  const docs = await Course.find({}).lean({ virtuals: true });
+  return docs.map(d => {
+    d.id = d.legacyId || String(d._id);
+    delete d._id;
+    delete d.__v;
+    return d;
+  });
 }
 
-function findByCode(code) {
-  return readDB().courses.find(
-    c => c.code && c.code.toLowerCase() === code.toLowerCase()
-  ) || null;
+async function findById(id) {
+  if (!id) return null;
+  const doc = await Course.findOne({ legacyId: String(id).trim() }).lean({ virtuals: true });
+  if (!doc) return null;
+  doc.id = doc.legacyId || String(doc._id);
+  delete doc._id;
+  delete doc.__v;
+  return doc;
 }
 
-function create(courseData) {
-  const db = readDB();
-  db.courses.push(courseData);
-  writeDB(db);
-  return courseData;
+async function findByCode(code) {
+  if (!code) return null;
+  const doc = await Course.findOne({
+    code: { $regex: new RegExp(`^${code.trim()}$`, 'i') }
+  }).lean({ virtuals: true });
+  if (!doc) return null;
+  doc.id = doc.legacyId || String(doc._id);
+  delete doc._id;
+  delete doc.__v;
+  return doc;
 }
 
-function update(id, courseData) {
-  const db  = readDB();
-  const idx = db.courses.findIndex(c => c.id === id);
-  if (idx === -1) return null;
-  db.courses[idx] = courseData;
-  writeDB(db);
-  return db.courses[idx];
+async function create(courseData) {
+  const { id: legacyId, _id, ...rest } = courseData;
+  const doc = new Course({
+    ...rest,
+    legacyId: legacyId || rest.legacyId,
+  });
+  const saved = await doc.save();
+  return toPlain(saved);
 }
 
-function remove(id) {
-  const db  = readDB();
-  const idx = db.courses.findIndex(c => c.id === id);
-  if (idx === -1) return null;
-  const [deleted] = db.courses.splice(idx, 1);
-  writeDB(db);
-  return deleted;
+async function update(id, courseData) {
+  const { _id, ...rest } = courseData;
+  // Always keep legacyId intact
+  rest.legacyId = id;
+
+  const doc = await Course.findOneAndUpdate(
+    { legacyId: String(id).trim() },
+    { $set: rest },
+    { returnDocument: 'after' }
+  ).lean({ virtuals: true });
+
+  if (!doc) return null;
+  doc.id = doc.legacyId || String(doc._id);
+  delete doc._id;
+  delete doc.__v;
+  return doc;
+}
+
+async function remove(id) {
+  const doc = await Course.findOneAndDelete({
+    legacyId: String(id).trim()
+  }).lean({ virtuals: true });
+
+  if (!doc) return null;
+  doc.id = doc.legacyId || String(doc._id);
+  delete doc._id;
+  delete doc.__v;
+  return doc;
 }
 
 module.exports = { findAll, findById, findByCode, create, update, remove };

@@ -1,15 +1,15 @@
-﻿'use strict';
+'use strict';
 /**
- * controllers/courseController.js
+ * controllers/courseController.js  (MongoDB/Mongoose version)
  * HTTP request/response handling for courses.
- * Business logic lives in courseService.js.
+ * All service calls are now properly awaited.
  */
 const courseService = require('../services/courseService');
 
 /** GET /courses */
 async function getAllCourses(req, res, next) {
   try {
-    const courses = courseService.getAll();
+    const courses = await courseService.getAll();
     res.json(courses);
   } catch (err) { next(err); }
 }
@@ -17,7 +17,7 @@ async function getAllCourses(req, res, next) {
 /** GET /courses/:id */
 async function getCourseById(req, res, next) {
   try {
-    const course = courseService.getById(req.params.id);
+    const course = await courseService.getById(req.params.id);
     if (!course) return res.status(404).json({ success: false, error: 'Not Found', message: 'Course not found.' });
     res.json(course);
   } catch (err) { next(err); }
@@ -26,7 +26,7 @@ async function getCourseById(req, res, next) {
 /** POST /courses */
 async function createCourse(req, res, next) {
   try {
-    const course = courseService.create(req.body);
+    const course = await courseService.create(req.body);
     res.status(201).json(course);
   } catch (err) { next(err); }
 }
@@ -34,7 +34,7 @@ async function createCourse(req, res, next) {
 /** PUT /courses/:id */
 async function updateCourse(req, res, next) {
   try {
-    const course = courseService.update(req.params.id, req.body);
+    const course = await courseService.update(req.params.id, req.body);
     if (!course) return res.status(404).json({ success: false, error: 'Not Found', message: 'Course not found.' });
     res.json(course);
   } catch (err) { next(err); }
@@ -43,7 +43,7 @@ async function updateCourse(req, res, next) {
 /** DELETE /courses/:id */
 async function deleteCourse(req, res, next) {
   try {
-    const result = courseService.remove(req.params.id);
+    const result = await courseService.remove(req.params.id);
     if (!result) return res.status(404).json({ success: false, error: 'Not Found', message: 'Course not found.' });
     res.json(result.deleted);
   } catch (err) { next(err); }

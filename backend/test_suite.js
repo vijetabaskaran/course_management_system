@@ -1,17 +1,20 @@
 'use strict';
 /**
  * test_suite.js — End-to-end verification script for EduPortal Backend
- * Covers: original course/student/enrollment tests + Task 9 & Task 10 requirements.
+ * Covers: original course/student/enrollment tests + Task 9, 10 & 11 requirements.
+ * Runs against local MongoDB via Mongoose.
  */
 process.env.TEST_MODE = 'true';
 process.env.PORT = '4001';
 
 const http = require('http');
-const fs   = require('fs');
 const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 
-const DB_PATH = path.join(__dirname, 'data', 'db.json');
-const originalDB = fs.readFileSync(DB_PATH, 'utf8');
+const { connectDB, disconnectDB } = require('./config/mongoose');
+const User       = require('./models/schemas/UserSchema');
+const Course     = require('./models/schemas/CourseSchema');
+const Enrollment = require('./models/schemas/EnrollmentSchema');
 
 const app = require('./server');
 
@@ -48,7 +51,11 @@ function makeRequest(server, options, bodyData) {
 }
 
 async function runTests() {
-  console.log('Starting EduPortal Backend Verification Suite (Task 9 & 10)...\n');
+  console.log('Starting EduPortal Backend Verification Suite (Task 9, 10, 11, 12)...\n');
+
+  // Ensure MongoDB is connected before tests start
+  await connectDB();
+
   const server = app.listen(0);
   await new Promise(r => server.once('listening', r));
 
@@ -65,7 +72,9 @@ async function runTests() {
     }
   }
 
-  let jwtToken = null; // will be set after successful login
+  let testEmail = null;
+  let studentBEmail = null;
+  let testCourseCode = null;
 
   try {
     // ── SECTION 1: Existing Functionality ────────────────────────────────────
@@ -107,16 +116,16 @@ async function runTests() {
     const enrollmentsRes = await makeRequest(server, { path: '/enrollments' });
     assert(enrollmentsRes.status === 200 && Array.isArray(enrollmentsRes.json), 'GET /enrollments returns enrollments list');
 
-    // ── SECTION 2: Task 9 — Registration ──────────────────────────────────────
-    console.log('\n=== SECTION 2: Task 9 — Student Registration (/api/v1/auth/register) ===\n');
+    // ── SECTION 2: Task 9 & 11 — Student Registration & Role Protection ───────
+    console.log('\n=== SECTION 2: Task 9 & 11 — Student Registration & RBAC Safe Roles ===\n');
 
-    const testEmail = `test_${Date.now()}@example.com`;
+    testEmail = `test_${Date.now()}@example.com`;
     const testPassword = 'TestPass@99';
 
-    // 9. Register new student → 201
+    // 9. Register new student (attempting role escalation to admin) → 201 with role "student"
     const regRes = await makeRequest(server,
       { path: '/api/v1/auth/register', method: 'POST' },
-      { fullname: 'Test Student', email: testEmail, department: 'Computer Science', password: testPassword }
+      { fullname: 'Test Student', email: testEmail, department: 'Computer Science', password: testPassword, role: 'admin' }
     );
     assert(regRes.status === 201, 'POST /api/v1/auth/register — new student returns 201');
     assert(regRes.json?.student?.email === testEmail, 'Registration response contains correct email');
@@ -125,6 +134,7 @@ async function runTests() {
     assert(regRes.json?.tokenType === 'Bearer', 'Registration response has tokenType: Bearer');
     assert(regRes.json?.message !== undefined, 'Registration response has message field');
     assert(regRes.json?.student?.id !== undefined, 'Registration response contains student id');
+    assert(regRes.json?.student?.role === 'student' && regRes.json?.role === 'student', 'Registration securely assigns role "student" and ignores body.role="admin"');
 
     // 10. Register same email → 409
     const dupRegRes = await makeRequest(server,
@@ -154,22 +164,23 @@ async function runTests() {
     );
     assert(shortPwRes.status === 400, 'POST /api/v1/auth/register — password < 8 chars returns 400');
 
-    // ── SECTION 3: Task 9/10 — Login & JWT ────────────────────────────────────
-    console.log('\n=== SECTION 3: Task 9/10 — Login & JWT (/api/v1/auth/login) ===\n');
+    // ── SECTION 3: Task 9/10/11 — Login & JWT with RBAC Roles ─────────────────
+    console.log('\n=== SECTION 3: Task 9/10/11 — Login & JWT with RBAC Roles (/api/v1/auth/login) ===\n');
 
-    // 14. Login with correct credentials → 200 + JWT
+    // 14. Login with correct student credentials → 200 + JWT with role "student"
     const loginRes = await makeRequest(server,
       { path: '/api/v1/auth/login', method: 'POST' },
       { email: testEmail, password: testPassword }
     );
-    assert(loginRes.status === 200, 'POST /api/v1/auth/login — correct credentials returns 200');
+    assert(loginRes.status === 200, 'POST /api/v1/auth/login — correct student credentials returns 200');
     assert(loginRes.json?.token && typeof loginRes.json.token === 'string', 'Login response contains JWT token');
     assert(loginRes.json?.tokenType === 'Bearer', 'Login response has tokenType: Bearer');
     assert(loginRes.json?.expiresIn !== undefined, 'Login response has expiresIn field');
     assert(loginRes.json?.student?.email === testEmail, 'Login response contains safe student details');
     assert(loginRes.json?.student?.password === undefined, 'Login response does NOT expose password');
+    assert(loginRes.json?.student?.role === 'student' && loginRes.json?.role === 'student', 'Student login returns role "student"');
 
-    jwtToken = loginRes.json?.token; // save for protected route tests
+    const studentToken = loginRes.json?.token;
 
     // 15. Login with wrong password → 401
     const badPwLogin = await makeRequest(server,
@@ -194,100 +205,229 @@ async function runTests() {
     assert(legacyLogin.status === 200 && legacyLogin.json?.success === true && legacyLogin.json?.student?.email === 'student@eduportal.com', 'POST /students/login legacy endpoint still works for existing students');
     assert(legacyLogin.json?.student?.password === undefined, 'Legacy login strips password from response');
 
-    // ── SECTION 4: Task 10 — JWT Middleware & Protected Routes ────────────────
-    console.log('\n=== SECTION 4: Task 10 — Protected Course Routes ===\n');
+    // 18. Admin login via /api/v1/auth/login → 200 + role "admin"
+    const adminLoginRes = await makeRequest(server,
+      { path: '/api/v1/auth/login', method: 'POST' },
+      { email: 'admin@eduportal.com', password: 'AdminSecure2026!' }
+    );
+    assert(adminLoginRes.status === 200, 'POST /api/v1/auth/login — admin credentials returns 200');
+    assert(adminLoginRes.json?.token && typeof adminLoginRes.json.token === 'string', 'Admin login returns JWT token');
+    assert(adminLoginRes.json?.role === 'admin' || adminLoginRes.json?.user?.role === 'admin', 'Admin login returns role "admin"');
+    const adminToken = adminLoginRes.json?.token;
 
-    // 18. POST /courses without token → 401
+    // ── SECTION 4: Task 11 — RBAC Protected Course Routes ─────────────────────
+    console.log('\n=== SECTION 4: Task 11 — Role-Based Access Control (RBAC) on Courses ===\n');
+
+    // 19. POST /courses without token → 401
     const noTokenCreate = await makeRequest(server,
       { path: '/courses', method: 'POST' },
       { title: 'Unauthorized Course', code: 'UNAUTH-001' }
     );
-    assert(noTokenCreate.status === 401, 'POST /courses without token returns 401');
+    assert(noTokenCreate.status === 401, 'POST /courses without token returns 401 Unauthorized');
 
-    // 19. PUT /courses/:id without token → 401
+    // 20. PUT /courses/:id without token → 401
     const noTokenUpdate = await makeRequest(server,
       { path: `/courses/${firstCourseId}`, method: 'PUT' },
       { title: 'Unauthorized Update' }
     );
-    assert(noTokenUpdate.status === 401, 'PUT /courses/:id without token returns 401');
+    assert(noTokenUpdate.status === 401, 'PUT /courses/:id without token returns 401 Unauthorized');
 
-    // 20. DELETE /courses/:id without token → 401
+    // 21. DELETE /courses/:id without token → 401
     const noTokenDelete = await makeRequest(server,
       { path: `/courses/${firstCourseId}`, method: 'DELETE' }
     );
-    assert(noTokenDelete.status === 401, 'DELETE /courses/:id without token returns 401');
+    assert(noTokenDelete.status === 401, 'DELETE /courses/:id without token returns 401 Unauthorized');
 
-    // 21. POST /courses with malformed token → 401
+    // 22. POST /courses with malformed token → 401
     const malformedToken = await makeRequest(server,
       { path: '/courses', method: 'POST', headers: { 'Authorization': 'Bearer not_a_real_token' } },
       { title: 'Bad Token Course', code: 'MALFORMED-001' }
     );
-    assert(malformedToken.status === 401, 'POST /courses with malformed token returns 401');
+    assert(malformedToken.status === 401, 'POST /courses with malformed token returns 401 Unauthorized');
 
-    // 22. POST /courses with valid JWT → 201
+    // 23. POST /courses with STUDENT token → 403 Forbidden (RBAC security boundary)
+    const studentCreate = await makeRequest(server,
+      { path: '/courses', method: 'POST', headers: { 'Authorization': `Bearer ${studentToken}` } },
+      { title: 'Student Attempt Course', code: 'STU-FORBID-001' }
+    );
+    assert(studentCreate.status === 403, 'POST /courses with student token returns 403 Forbidden');
+
+    // 24. PUT /courses/:id with STUDENT token → 403 Forbidden
+    const studentUpdate = await makeRequest(server,
+      { path: `/courses/${firstCourseId}`, method: 'PUT', headers: { 'Authorization': `Bearer ${studentToken}` } },
+      { title: 'Student Attempt Update' }
+    );
+    assert(studentUpdate.status === 403, 'PUT /courses/:id with student token returns 403 Forbidden');
+
+    // 25. DELETE /courses/:id with STUDENT token → 403 Forbidden
+    const studentDelete = await makeRequest(server,
+      { path: `/courses/${firstCourseId}`, method: 'DELETE', headers: { 'Authorization': `Bearer ${studentToken}` } }
+    );
+    assert(studentDelete.status === 403, 'DELETE /courses/:id with student token returns 403 Forbidden');
+
+    // 26. POST /courses with ADMIN token → 201 Created
+    testCourseCode = 'RBAC-' + Math.floor(1000 + Math.random() * 9000);
     const testCourseData = {
-      title: 'JWT Protected Test Course',
-      code: 'JWT-' + Math.floor(1000 + Math.random() * 9000),
-      domain: 'Testing',
+      title: 'Admin Created RBAC Test Course',
+      code: testCourseCode,
+      domain: 'Information Technology',
       level: 'Beginner',
-      instructor: 'Test Bot',
-      duration: '4 Weeks'
+      instructor: 'Admin Tester',
+      duration: '6 Weeks'
     };
-    const authedCreate = await makeRequest(server,
-      { path: '/courses', method: 'POST', headers: { 'Authorization': `Bearer ${jwtToken}` } },
+    const adminCreate = await makeRequest(server,
+      { path: '/courses', method: 'POST', headers: { 'Authorization': `Bearer ${adminToken}` } },
       testCourseData
     );
-    assert(authedCreate.status === 201 && authedCreate.json?.id && authedCreate.json?.title === testCourseData.title, 'POST /courses with valid JWT creates course (201)');
-    const createdCourseId = authedCreate.json?.id;
+    assert(adminCreate.status === 201 && adminCreate.json?.id && adminCreate.json?.title === testCourseData.title, 'POST /courses with admin token creates course (201 Created)');
+    const createdCourseId = adminCreate.json?.id;
 
-    // 23. PUT /courses/:id with valid JWT → 200
-    const authedUpdate = await makeRequest(server,
-      { path: `/courses/${createdCourseId}`, method: 'PUT', headers: { 'Authorization': `Bearer ${jwtToken}` } },
-      { ...testCourseData, title: 'JWT Protected Test Course (Updated)' }
+    // 27. PUT /courses/:id with ADMIN token → 200 OK
+    const adminUpdate = await makeRequest(server,
+      { path: `/courses/${createdCourseId}`, method: 'PUT', headers: { 'Authorization': `Bearer ${adminToken}` } },
+      { ...testCourseData, title: 'Admin Created RBAC Test Course (Updated)' }
     );
-    assert(authedUpdate.status === 200 && authedUpdate.json?.title?.includes('Updated'), 'PUT /courses/:id with valid JWT updates course (200)');
+    assert(adminUpdate.status === 200 && adminUpdate.json?.title?.includes('Updated'), 'PUT /courses/:id with admin token updates course (200 OK)');
 
-    // 24. DELETE /courses/:id with valid JWT → 200
-    const authedDelete = await makeRequest(server,
-      { path: `/courses/${createdCourseId}`, method: 'DELETE', headers: { 'Authorization': `Bearer ${jwtToken}` } }
+    // 28. DELETE /courses/:id with ADMIN token → 200 OK
+    const adminDelete = await makeRequest(server,
+      { path: `/courses/${createdCourseId}`, method: 'DELETE', headers: { 'Authorization': `Bearer ${adminToken}` } }
     );
-    assert(authedDelete.status === 200, 'DELETE /courses/:id with valid JWT deletes course (200)');
+    assert(adminDelete.status === 200, 'DELETE /courses/:id with admin token deletes course (200 OK)');
 
-    // 25. Verify GET /courses still public after changes
+    // 29. Verify GET /courses still public after changes
     const publicGetAfter = await makeRequest(server, { path: '/courses' });
     assert(publicGetAfter.status === 200 && Array.isArray(publicGetAfter.json), 'GET /courses still public after protecting write routes');
 
-    // ── SECTION 5: Enrollment regression ──────────────────────────────────────
-    console.log('\n=== SECTION 5: Enrollment Regression ===\n');
+    // ── SECTION 5: Task 12 — Student Course Enrollment End-to-End ─────────────
+    console.log('\n=== SECTION 5: Task 12 — Student Course Enrollment End-to-End ===\n');
 
-    // 26. POST /enrollments invalid student → 404
-    const badEnrollment = await makeRequest(server,
-      { path: '/enrollments', method: 'POST' },
-      { studentEmail: 'nonexistent@nobody.com', courseId: firstCourseId }
+    const enrollCourse = coursesRes.json[1] || coursesRes.json[0];
+    const targetCourseId = enrollCourse.id;
+
+    // 30. POST /api/v1/enrollments without token → 401 Unauthorized
+    const unauthedEnroll = await makeRequest(server,
+      { path: '/api/v1/enrollments', method: 'POST' },
+      { courseId: targetCourseId }
     );
-    assert(badEnrollment.status === 404, 'POST /enrollments with non-existent student returns 404');
+    assert(unauthedEnroll.status === 401, 'POST /api/v1/enrollments without token returns 401 Unauthorized');
 
-    // 27. POST /enrollments valid creation
-    const testEnrollEmail = 'student@eduportal.com';
-    const enrollCourseId = coursesRes.json[0].id;
-    const existingEnroll = enrollmentsRes.json.find(e => e.studentEmail === testEnrollEmail && e.courseId === enrollCourseId);
-    if (existingEnroll) {
-      await makeRequest(server, { path: `/enrollments/${existingEnroll.id}`, method: 'DELETE' });
-    }
-    const createEnrollRes = await makeRequest(server,
-      { path: '/enrollments', method: 'POST' },
-      { studentEmail: testEnrollEmail, courseId: enrollCourseId }
+    // 31. POST /api/v1/enrollments with invalid token → 401 Unauthorized
+    const invalidTokenEnroll = await makeRequest(server,
+      { path: '/api/v1/enrollments', method: 'POST', headers: { 'Authorization': 'Bearer invalid_token' } },
+      { courseId: targetCourseId }
     );
-    assert(createEnrollRes.status === 201 && createEnrollRes.json?.courseId === enrollCourseId, 'POST /enrollments creates valid enrollment');
+    assert(invalidTokenEnroll.status === 401, 'POST /api/v1/enrollments with invalid token returns 401 Unauthorized');
 
-    // 28. POST /enrollments duplicate → 409
-    const dupEnrollRes = await makeRequest(server,
-      { path: '/enrollments', method: 'POST' },
-      { studentEmail: testEnrollEmail, courseId: enrollCourseId }
+    // 32. POST /api/v1/enrollments with admin token → 403 Forbidden (student-only endpoint)
+    const adminEnroll = await makeRequest(server,
+      { path: '/api/v1/enrollments', method: 'POST', headers: { 'Authorization': `Bearer ${adminToken}` } },
+      { courseId: targetCourseId }
     );
-    assert(dupEnrollRes.status === 409, 'POST /enrollments prevents duplicate enrollment (409)');
+    assert(adminEnroll.status === 403, 'POST /api/v1/enrollments with admin token returns 403 Forbidden');
 
-    // 29. Unknown endpoint → 404
+    // 33. POST /api/v1/enrollments with nonexistent course ID → 404 Not Found
+    const notFoundEnroll = await makeRequest(server,
+      { path: '/api/v1/enrollments', method: 'POST', headers: { 'Authorization': `Bearer ${studentToken}` } },
+      { courseId: 'NONEXISTENT_COURSE_999' }
+    );
+    assert(notFoundEnroll.status === 404, 'POST /api/v1/enrollments with nonexistent course ID returns 404 Not Found');
+
+    // 34. POST /api/v1/enrollments with missing/empty course ID → 400 Bad Request
+    const missingCourseEnroll = await makeRequest(server,
+      { path: '/api/v1/enrollments', method: 'POST', headers: { 'Authorization': `Bearer ${studentToken}` } },
+      {}
+    );
+    assert(missingCourseEnroll.status === 400, 'POST /api/v1/enrollments with missing course ID returns 400 Bad Request');
+
+    // 35. POST /api/v1/enrollments with valid student token → 201 Created
+    const validEnroll = await makeRequest(server,
+      { path: '/api/v1/enrollments', method: 'POST', headers: { 'Authorization': `Bearer ${studentToken}` } },
+      { courseId: targetCourseId }
+    );
+    assert(validEnroll.status === 201, 'POST /api/v1/enrollments with student token returns 201 Created');
+    assert(validEnroll.json?.enrollment?.courseId === targetCourseId, 'Created enrollment record matches target courseId');
+    assert(validEnroll.json?.enrollment?.studentEmail === testEmail, 'Created enrollment record matches authenticated student email');
+    assert(validEnroll.json?.enrollment?.status === 'active', 'Created enrollment initial status is "active"');
+    assert(validEnroll.json?.enrollment?.enrolledAt !== undefined, 'Created enrollment record contains enrolledAt timestamp');
+
+    // 36. POST /api/v1/enrollments duplicate enrollment for same course → 409 Conflict
+    const dupEnroll = await makeRequest(server,
+      { path: '/api/v1/enrollments', method: 'POST', headers: { 'Authorization': `Bearer ${studentToken}` } },
+      { courseId: targetCourseId }
+    );
+    assert(dupEnroll.status === 409, 'POST /api/v1/enrollments duplicate enrollment returns 409 Conflict');
+
+    // 37. GET /api/v1/enrollments/my-courses without token → 401 Unauthorized
+    const unauthedMyCourses = await makeRequest(server, { path: '/api/v1/enrollments/my-courses' });
+    assert(unauthedMyCourses.status === 401, 'GET /api/v1/enrollments/my-courses without token returns 401 Unauthorized');
+
+    // 38. GET /api/v1/enrollments/my-courses with admin token → 403 Forbidden
+    const adminMyCourses = await makeRequest(server,
+      { path: '/api/v1/enrollments/my-courses', headers: { 'Authorization': `Bearer ${adminToken}` } }
+    );
+    assert(adminMyCourses.status === 403, 'GET /api/v1/enrollments/my-courses with admin token returns 403 Forbidden');
+
+    // 39. GET /api/v1/enrollments/my-courses with student token → 200 OK + populated course details
+    const studentMyCourses = await makeRequest(server,
+      { path: '/api/v1/enrollments/my-courses', headers: { 'Authorization': `Bearer ${studentToken}` } }
+    );
+    assert(studentMyCourses.status === 200, 'GET /api/v1/enrollments/my-courses returns 200 OK');
+    assert(studentMyCourses.json?.count >= 1, 'My-courses response contains total enrollment count >= 1');
+    assert(Array.isArray(studentMyCourses.json?.enrollments), 'My-courses response contains enrollments list');
+    const myEnrolledItem = studentMyCourses.json?.enrollments.find(e => e.courseId === targetCourseId);
+    assert(myEnrolledItem !== undefined, 'Enrolled course found in student my-courses list');
+    assert(myEnrolledItem?.course?.id === targetCourseId && myEnrolledItem?.course?.title !== undefined, 'Course details are properly populated on enrollment record');
+
+    // 40. Register Student B with no enrollments → GET /my-courses returns empty list
+    studentBEmail = `student_b_${Date.now()}@example.com`;
+    const regStudentB = await makeRequest(server,
+      { path: '/api/v1/auth/register', method: 'POST' },
+      { fullname: 'Student B', email: studentBEmail, department: 'Biology', password: 'StudentBPass123!' }
+    );
+    const studentBToken = regStudentB.json?.token;
+
+    const studentBMyCourses = await makeRequest(server,
+      { path: '/api/v1/enrollments/my-courses', headers: { 'Authorization': `Bearer ${studentBToken}` } }
+    );
+    assert(studentBMyCourses.status === 200 && studentBMyCourses.json?.count === 0 && studentBMyCourses.json?.enrollments?.length === 0, 'New student with no enrollments receives count: 0 and empty enrollments list');
+
+    // 41. Student B tries to unenroll from Student A's course → 404 Not Found (cannot unenroll another student)
+    const crossUnenroll = await makeRequest(server,
+      { path: `/api/v1/enrollments/${targetCourseId}`, method: 'DELETE', headers: { 'Authorization': `Bearer ${studentBToken}` } }
+    );
+    assert(crossUnenroll.status === 404, 'Student B cannot unenroll from Student A\'s course (returns 404 Not Found)');
+
+    // 42. DELETE /api/v1/enrollments/:courseId without token → 401 Unauthorized
+    const unauthedDelete = await makeRequest(server,
+      { path: `/api/v1/enrollments/${targetCourseId}`, method: 'DELETE' }
+    );
+    assert(unauthedDelete.status === 401, 'DELETE /api/v1/enrollments/:courseId without token returns 401 Unauthorized');
+
+    // 43. DELETE /api/v1/enrollments/:courseId with admin token → 403 Forbidden
+    const adminUnenroll = await makeRequest(server,
+      { path: `/api/v1/enrollments/${targetCourseId}`, method: 'DELETE', headers: { 'Authorization': `Bearer ${adminToken}` } }
+    );
+    assert(adminUnenroll.status === 403, 'DELETE /api/v1/enrollments/:courseId with admin token returns 403 Forbidden');
+
+    // 44. Student unenrolls from their course → 200 OK
+    const unenrollRes = await makeRequest(server,
+      { path: `/api/v1/enrollments/${targetCourseId}`, method: 'DELETE', headers: { 'Authorization': `Bearer ${studentToken}` } }
+    );
+    assert(unenrollRes.status === 200, 'DELETE /api/v1/enrollments/:courseId with student token returns 200 OK');
+    assert(unenrollRes.json?.message !== undefined, 'Unenroll response contains confirmation message');
+
+    // 45. Student tries to unenroll again → 404 Not Found
+    const repeatUnenroll = await makeRequest(server,
+      { path: `/api/v1/enrollments/${targetCourseId}`, method: 'DELETE', headers: { 'Authorization': `Bearer ${studentToken}` } }
+    );
+    assert(repeatUnenroll.status === 404, 'Subsequent unenroll request returns 404 Not Found');
+
+    // 46. Course still exists after unenrollment (unenroll does not delete the course itself)
+    const courseStillExists = await makeRequest(server, { path: `/courses/${targetCourseId}` });
+    assert(courseStillExists.status === 200 && courseStillExists.json?.id === targetCourseId, 'Unenrollment does NOT delete the course record itself');
+
+    // 47. Unknown route returns consistent JSON 404
     const unknownRes = await makeRequest(server, { path: '/api/unknown/random/endpoint' });
     assert(unknownRes.status === 404 && unknownRes.json?.error === 'Not Found', 'Unknown routes return consistent JSON 404');
 
@@ -295,9 +435,25 @@ async function runTests() {
     console.error('Test execution error:', err);
     failed++;
   } finally {
-    // Restore original db.json — never leave test data behind
-    fs.writeFileSync(DB_PATH, originalDB, 'utf8');
+    // Clean up temporary test data from MongoDB
+    try {
+      if (testEmail) {
+        await User.deleteMany({ email: testEmail });
+        await Enrollment.deleteMany({ studentEmail: testEmail });
+      }
+      if (studentBEmail) {
+        await User.deleteMany({ email: studentBEmail });
+        await Enrollment.deleteMany({ studentEmail: studentBEmail });
+      }
+      if (testCourseCode) {
+        await Course.deleteMany({ code: testCourseCode });
+      }
+    } catch (cleanupErr) {
+      console.error('Error cleaning up test data:', cleanupErr.message);
+    }
+
     server.close();
+    await disconnectDB();
   }
 
   console.log(`\n================================`);

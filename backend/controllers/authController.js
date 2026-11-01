@@ -46,7 +46,7 @@ async function login(req, res, next) {
  */
 async function adminLogin(req, res, next) {
   try {
-    const result = authService.adminLogin(req.body);
+    const result = await authService.adminLogin(req.body);
     res.status(200).json(result);
   } catch (err) {
     next(err);

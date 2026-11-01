@@ -1,23 +1,26 @@
 'use strict';
 /**
- * server.js  — EduPortal Express Backend
+ * server.js  — EduPortal Express Backend (MongoDB/Mongoose edition)
  *
- * Entry point. Loads env, configures middleware, mounts routes, starts listening.
+ * Entry point. Loads env, connects to MongoDB, configures middleware,
+ * mounts routes, starts listening.
  * Keep this file thin: configuration belongs in config/, routes in routes/.
  */
-const path       = require('path');
+const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const express    = require('express');
 const cors       = require('cors');
 const morgan     = require('morgan');
 
+const { connectDB, checkDBHealth } = require('./config/mongoose');
+
 const courseRoutes     = require('./routes/courseRoutes');
 const studentRoutes    = require('./routes/studentRoutes');
 const enrollmentRoutes = require('./routes/enrollmentRoutes');
 const authRoutes       = require('./routes/authRoutes');
+const learningProgressRoutes = require('./routes/learningProgressRoutes');
 const { notFound, globalError } = require('./middleware/errorMiddleware');
-const { checkDBHealth }         = require('./config/db');
 
 
 const app  = express();
@@ -25,15 +28,12 @@ const PORT = process.env.PORT || 4000;
 const isDev = process.env.NODE_ENV !== 'production';
 
 // ── CORS ────────────────────────────────────────────────────────────────────
-// In development, allow the Vite dev server (port 5173) by default.
-// In production, restrict to origins listed in ALLOWED_ORIGINS env var.
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
   : ['http://localhost:5173', 'http://127.0.0.1:5173'];
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (curl, Postman, server-to-server)
     if (!origin) return callback(null, true);
     if (allowedOrigins.includes(origin)) return callback(null, true);
     callback(new Error(`CORS: origin "${origin}" is not allowed.`));
@@ -50,8 +50,8 @@ app.use(express.urlencoded({ extended: true }));
 app.use(morgan(isDev ? 'dev' : 'combined'));
 
 // ── Root status endpoint ─────────────────────────────────────────────────────
-app.get('/', (req, res) => {
-  const db = checkDBHealth();
+app.get('/', async (req, res) => {
+  const db = await checkDBHealth();
   res.send(`
     <!DOCTYPE html>
     <html lang="en">
@@ -73,7 +73,7 @@ app.get('/', (req, res) => {
     </head>
     <body>
       <h1>&#127891; EduPortal Backend — port ${PORT}</h1>
-      <p>Data store: <span class="${db.ok ? 'ok' : 'fail'}">${db.ok ? '&#10003; Healthy' : '&#10007; Error: ' + db.error}</span></p>
+      <p>Data store: <strong>MongoDB</strong> <span class="${db.ok ? 'ok' : 'fail'}">${db.ok ? '&#10003; Healthy' : '&#10007; Error: ' + db.error}</span></p>
       ${db.ok ? `
       <p>Resources:</p>
       <ul>
@@ -91,56 +91,75 @@ app.get('/', (req, res) => {
 });
 
 // ── Health check ─────────────────────────────────────────────────────────────
-app.get('/api/health', (req, res) => {
-  const db = checkDBHealth();
+app.get('/api/health', async (req, res) => {
+  const db = await checkDBHealth();
   res.status(db.ok ? 200 : 503).json({
-    success:   db.ok,
-    status:    db.ok ? 'healthy' : 'degraded',
-    message:   db.ok ? 'EduPortal API is running.' : 'Data store is unreachable.',
-    dataStore: db,
-    timestamp: new Date().toISOString(),
+    success:     db.ok,
+    status:      db.ok ? 'healthy' : 'degraded',
+    message:     db.ok ? 'EduPortal API is running.' : 'Database is unreachable.',
+    dataStore:   db,
+    database:    'MongoDB',
+    timestamp:   new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development',
   });
 });
 
 // ── API Routes ────────────────────────────────────────────────────────────────
-// NOTE: We keep the existing flat paths (/courses, /students, /enrollments)
-// so the React frontend (api.js baseURL http://localhost:4000) needs no changes.
-// Task 9 & 10: Auth routes are mounted under /api/v1/auth.
-app.use('/api/v1/auth',  authRoutes);
-app.use('/courses',     courseRoutes);
-app.use('/students',    studentRoutes);
-app.use('/enrollments', enrollmentRoutes);
+app.use('/api/v1/auth',        authRoutes);
+app.use('/api/v1/enrollments', enrollmentRoutes);
+app.use('/api/v1/progress',    learningProgressRoutes);
+app.use('/courses',            courseRoutes);
+app.use('/students',           studentRoutes);
+app.use('/enrollments',        enrollmentRoutes);
+app.use('/progress',           learningProgressRoutes);
 
 // ── Error handling (must be last) ─────────────────────────────────────────────
 app.use(notFound);
 app.use(globalError);
 
 // ── Start ─────────────────────────────────────────────────────────────────────
-function startServer(port = PORT) {
+async function startServer(port = PORT) {
+  // Connect to MongoDB FIRST — if this fails, the server does NOT start.
+  await connectDB();
+
   return app.listen(port, () => {
     const line = '─'.repeat(50);
     console.log('\n' + line);
     console.log('  🎓  EduPortal Backend');
     console.log(line);
-    console.log('  URL  : http://localhost:' + port);
-    console.log('  ENV  : ' + (process.env.NODE_ENV || 'development'));
+    console.log('  URL      : http://localhost:' + port);
+    console.log('  ENV      : ' + (process.env.NODE_ENV || 'development'));
+    console.log('  Database : MongoDB (Mongoose)');
     console.log('');
     console.log('  GET  /courses');
     console.log('  GET  /students');
-    console.log('  POST /students/login      (legacy)');
-    console.log('  POST /api/v1/auth/register  (Task 9 — bcrypt + JWT)');
-    console.log('  POST /api/v1/auth/login     (Task 9/10 — bcrypt + JWT)');
-    console.log('  GET  /enrollments');
+    console.log('  POST /api/v1/auth/register');
+    console.log('  POST /api/v1/auth/login');
+    console.log('  GET  /api/v1/enrollments/my-courses');
+    console.log('  GET  /api/v1/progress/my-progress');
     console.log('  GET  /api/health');
-
     console.log(line + '\n');
   });
 }
 
 if (!process.env.TEST_MODE) {
-  startServer();
+  startServer().catch(err => {
+    console.error('  FATAL: Server failed to start:', err.message);
+    process.exit(1);
+  });
 }
+
+// Graceful shutdown
+process.on('SIGTERM', async () => {
+  const { disconnectDB } = require('./config/mongoose');
+  await disconnectDB();
+  process.exit(0);
+});
+process.on('SIGINT', async () => {
+  const { disconnectDB } = require('./config/mongoose');
+  await disconnectDB();
+  process.exit(0);
+});
 
 module.exports = app;
 module.exports.startServer = startServer;

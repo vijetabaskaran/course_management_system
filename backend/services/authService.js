@@ -1,6 +1,6 @@
 'use strict';
 /**
- * services/authService.js
+ * services/authService.js  (MongoDB/Mongoose version)
  * Business logic for Task 9 (registration/login) and Task 10 (JWT issuance).
  *
  * Password strategy:
@@ -23,10 +23,10 @@ const { newId }     = require('../utils/idGenerator');
 const BCRYPT_ROUNDS = 12; // secure salt rounds
 
 /**
- * Sign and return a JWT for the given student.
- * Payload: { sub: id, email }  — no passwords, no hashes.
+ * Sign and return a JWT for the given user.
+ * Payload: { sub: id, email, role }  — trusted role and identity, no passwords.
  */
-function signToken(student) {
+function signToken(user) {
   const secret    = process.env.JWT_SECRET;
   const expiresIn = process.env.JWT_EXPIRES_IN || '1h';
 
@@ -36,8 +36,10 @@ function signToken(student) {
     throw err;
   }
 
+  const role = user.role || 'student';
+
   return jwt.sign(
-    { sub: student.id, email: student.email },
+    { sub: user.id, email: user.email, role },
     secret,
     { expiresIn }
   );
@@ -84,15 +86,13 @@ async function register(body) {
   }
 
   // ── Duplicate email check ──────────────────────────────────
-  if (studentModel.findByEmailRaw(normEmail)) {
+  if (await studentModel.findByEmailRaw(normEmail)) {
     const err = new Error('An account with this email already exists.'); err.statusCode = 409; throw err;
   }
 
   // ── Derive username from email local-part if not provided ──
-  // (The existing student model requires a username field)
   let resolvedUsername = username ? username.trim().toLowerCase() : normEmail.split('@')[0];
-  // If username already taken, append a random suffix
-  if (studentModel.findByUsernameRaw(resolvedUsername)) {
+  if (await studentModel.findByUsernameRaw(resolvedUsername)) {
     resolvedUsername = resolvedUsername + '_' + Math.random().toString(36).slice(2, 6);
   }
 
@@ -106,14 +106,14 @@ async function register(body) {
     email:      normEmail,
     username:   resolvedUsername,
     department: department.trim(),
-    password:   hashedPassword,   // bcrypt hash — stored in db.json, never returned
+    password:   hashedPassword,
     role:       'student',
-    authScheme: 'bcrypt',         // distinguishes new registrations from legacy records
+    authScheme: 'bcrypt',
     createdAt:  Date.now(),
   };
 
   // Persist and get back the safe (password-stripped) version
-  const safeStudent = studentModel.create(student);
+  const safeStudent = await studentModel.create(student);
 
   // ── Issue JWT ──────────────────────────────────────────────
   const token = signToken(safeStudent.id ? safeStudent : student);
@@ -124,19 +124,15 @@ async function register(body) {
     token,
     tokenType: 'Bearer',
     expiresIn,
-    student:   safeStudent,  // no password field
+    student:   safeStudent,
+    user:      safeStudent,
+    role:      'student',
   };
 }
 
 /**
- * Authenticate a student and return a JWT.
+ * Authenticate a user (student or admin) and return a JWT.
  * Accepts: { email, password }
- *
- * Handles both:
- *  - bcrypt-hashed passwords (new registrations via /api/v1/auth/register)
- *  - Legacy djb2+btoa passwords (existing records from before this task)
- *
- * Returns: { student (safe), token, tokenType, expiresIn }
  */
 async function login(body) {
   const { email, password } = body || {};
@@ -150,11 +146,9 @@ async function login(body) {
 
   const normEmail = email.trim().toLowerCase();
 
-  // Retrieve the raw student record (includes password hash)
-  const raw = studentModel.findByEmailRaw(normEmail);
+  // Retrieve the raw user/student record (includes password hash)
+  const raw = await studentModel.findByEmailRaw(normEmail);
 
-  // Use a generic message for both "not found" and "wrong password"
-  // to avoid user-enumeration attacks.
   if (!raw) {
     const err = new Error('Invalid email or password.'); err.statusCode = 401; throw err;
   }
@@ -162,10 +156,8 @@ async function login(body) {
   let passwordMatch = false;
 
   if (raw.authScheme === 'bcrypt') {
-    // New-style bcrypt hash
     passwordMatch = await bcrypt.compare(password, raw.password);
   } else {
-    // Legacy djb2+btoa hash — mirror of frontend hashPassword()
     const legacyHash = legacyHashPassword(password);
     passwordMatch = (raw.password === legacyHash || raw.password === password);
   }
@@ -174,9 +166,10 @@ async function login(body) {
     const err = new Error('Invalid email or password.'); err.statusCode = 401; throw err;
   }
 
-  const safeStudent = studentModel.strip(raw);
+  const safeUser = studentModel.strip(raw);
+  safeUser.role = raw.role || 'student';
 
-  const token     = signToken(raw);
+  const token     = signToken({ ...raw, role: safeUser.role });
   const expiresIn = process.env.JWT_EXPIRES_IN || '1h';
 
   return {
@@ -184,7 +177,9 @@ async function login(body) {
     token,
     tokenType: 'Bearer',
     expiresIn,
-    student:   safeStudent,  // no password field
+    student:   safeUser,
+    user:      safeUser,
+    role:      safeUser.role,
   };
 }
 
@@ -203,36 +198,65 @@ function legacyHashPassword(password) {
 }
 
 /**
- * Authenticate the hardcoded admin and return a JWT.
- * Credentials: admin@eduportal.com / Admin@123 (mirrored from frontend DEFAULT_ADMIN).
- * SECURITY: Only for demo use. A production system would store bcrypt-hashed admin creds.
+ * Authenticate the admin and return a JWT.
  */
-function adminLogin(body) {
+async function adminLogin(body) {
   const { email, password } = body || {};
   if (!email || !password) {
     const err = new Error('Email and password are required.'); err.statusCode = 400; throw err;
   }
 
+  const normEmail = email.trim().toLowerCase();
+
+  // 1. Check if admin exists in database (e.g. created by scripts/createAdmin.js)
+  const raw = await studentModel.findByEmailRaw(normEmail);
+  if (raw && raw.role === 'admin') {
+    let passwordMatch = false;
+    if (raw.authScheme === 'bcrypt') {
+      passwordMatch = await bcrypt.compare(password, raw.password);
+    } else {
+      const legacyHash = legacyHashPassword(password);
+      passwordMatch = (raw.password === legacyHash || raw.password === password);
+    }
+    if (passwordMatch) {
+      const safeAdmin = studentModel.strip(raw);
+      safeAdmin.role = 'admin';
+      const token = signToken(raw);
+      const expiresIn = process.env.JWT_EXPIRES_IN || '1h';
+      return {
+        message:   'Admin login successful.',
+        token,
+        tokenType: 'Bearer',
+        expiresIn,
+        user:      safeAdmin,
+        student:   safeAdmin,
+        role:      'admin',
+      };
+    }
+  }
+
+  // 2. Legacy fallback: check demo credentials
   const ADMIN_EMAIL = 'admin@eduportal.com';
   const ADMIN_HASH  = legacyHashPassword('Admin@123');
-
-  const normEmail = email.trim().toLowerCase();
-  const inputHash = legacyHashPassword(password);
+  const inputHash   = legacyHashPassword(password);
 
   if (normEmail !== ADMIN_EMAIL || inputHash !== ADMIN_HASH) {
     const err = new Error('Invalid admin credentials.'); err.statusCode = 401; throw err;
   }
 
-  const adminRecord = { id: 'admin-1', email: ADMIN_EMAIL };
+  const adminRecord = { id: 'admin-1', email: ADMIN_EMAIL, role: 'admin' };
   const token     = signToken(adminRecord);
   const expiresIn = process.env.JWT_EXPIRES_IN || '1h';
 
+  const safeAdmin = { id: 'admin-1', email: ADMIN_EMAIL, username: 'admin', fullname: 'Administrator', role: 'admin' };
   return {
     message:   'Admin login successful.',
     token,
     tokenType: 'Bearer',
     expiresIn,
-    user: { id: 'admin-1', email: ADMIN_EMAIL, username: 'admin', fullname: 'Administrator', role: 'admin' },
+    user:      safeAdmin,
+    student:   safeAdmin,
+    role:      'admin',
   };
 }
 

@@ -316,11 +316,14 @@ function OverviewSection({ courses, students, enrollments }) {
 
 /* ── Courses Section ──────────────────────────── */
 function CoursesSection({ courses, enrollments, onAdd, onEdit, onView, onDelete }) {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin' || sessionStorage.getItem('role') === 'admin';
+
   return (
     <>
       <div className="section-header">
         <div><h2 className="section-title">Course Management</h2><p className="section-subtitle">Create, edit and manage all courses.</p></div>
-        <button className="btn-action" onClick={() => onAdd()}>+ New Course</button>
+        {isAdmin && <button className="btn-action" onClick={() => onAdd()}>+ New Course</button>}
       </div>
       {courses.length === 0 ? (
         <div className="empty-state"><h3>No courses yet</h3><p>Create your first course to get started.</p></div>
@@ -351,8 +354,8 @@ function CoursesSection({ courses, enrollments, onAdd, onEdit, onView, onDelete 
                   </div>
                   <div className="course-card-footer">
                     <button className="action-btn" onClick={() => onView(course)}>👁 View</button>
-                    <button className="action-btn" onClick={() => onEdit(course)}>✏ Edit</button>
-                    <button className="action-btn danger" onClick={() => onDelete(course)}>🗑 Delete</button>
+                    {isAdmin && <button className="action-btn" onClick={() => onEdit(course)}>✏ Edit</button>}
+                    {isAdmin && <button className="action-btn danger" onClick={() => onDelete(course)}>🗑 Delete</button>}
                   </div>
                 </div>
               </div>

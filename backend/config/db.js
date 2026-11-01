@@ -1,4 +1,4 @@
-﻿'use strict';
+'use strict';
 /**
  * config/db.js
  * Centralised JSON-file data access layer.
@@ -33,9 +33,10 @@ function checkDBHealth() {
     return {
       ok: true,
       collections: {
-        courses:     Array.isArray(db.courses)     ? db.courses.length     : 'missing',
-        students:    Array.isArray(db.students)    ? db.students.length    : 'missing',
-        enrollments: Array.isArray(db.enrollments) ? db.enrollments.length : 'missing',
+        courses:          Array.isArray(db.courses)          ? db.courses.length          : 'missing',
+        students:         Array.isArray(db.students)         ? db.students.length         : 'missing',
+        enrollments:      Array.isArray(db.enrollments)      ? db.enrollments.length      : 'missing',
+        learningProgress: Array.isArray(db.learningProgress) ? db.learningProgress.length : 0,
       },
     };
   } catch (err) {

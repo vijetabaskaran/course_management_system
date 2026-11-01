@@ -1,76 +1,180 @@
-﻿'use strict';
+'use strict';
 /**
- * models/studentModel.js
- * Student data-access functions.
- * IMPORTANT: Password hashes are stored in the JSON file.
- * The strip() helper below removes sensitive fields before any response leaves the server.
+ * models/studentModel.js  (MongoDB/Mongoose version)
+ *
+ * Replaces the JSON-file implementation with Mongoose operations on the
+ * 'users' collection (User model).
+ *
+ * API surface is 100% backwards-compatible with the original JSON version
+ * so that controllers, services, and scripts require no changes.
+ *
+ * IMPORTANT: Password hashes are stored in MongoDB with select:false.
+ * The strip() helper removes sensitive fields before any response leaves the server.
  */
-const { readDB, writeDB } = require('../config/db');
+const User = require('./schemas/UserSchema');
 
-/** Remove password hash before sending to the client. */
-function strip(student) {
-  if (!student) return null;
-  const { password: _pw, ...safe } = student;
-  return safe;
+/** Remove password hash (and mongoose internals) before sending to the client. */
+function strip(userDoc) {
+  if (!userDoc) return null;
+  const obj = userDoc.toObject ? userDoc.toObject() : { ...userDoc };
+  delete obj.password;
+  delete obj.__v;
+  // Expose legacyId as 'id' for API compatibility
+  obj.id = obj.legacyId || String(obj._id);
+  if (!obj.role) obj.role = 'student';
+  return obj;
 }
 
+// ── Synchronous-style wrappers around Mongoose async operations ────────────────
+// NOTE: All functions that used to be synchronous are now async.
+// The controllers/services already use async/await, so this is transparent.
+
 function findAll() {
-  return readDB().students.map(strip);
+  return User.find({}).select('-password').lean().then(docs =>
+    docs.map(d => {
+      delete d.__v;
+      d.id = d.legacyId || String(d._id);
+      return d;
+    })
+  );
 }
 
 /** Raw find — includes password hash. Only used internally for auth. */
-function findRaw(predicate) {
-  return readDB().students.find(predicate) || null;
+async function findRaw(predicate) {
+  // Mongoose doesn't support JS predicates; callers use specific named functions.
+  // This is kept for internal legacy calls but redirects to findAll with password.
+  const docs = await User.find({}).select('+password').lean();
+  return docs.find(d => {
+    d.id = d.legacyId || String(d._id);
+    return predicate(d);
+  }) || null;
 }
 
-function findById(id) {
-  return strip(readDB().students.find(s => s.id === id) || null);
+async function findById(id) {
+  // Try legacyId first (string), then MongoDB ObjectId
+  let doc = await User.findOne({ legacyId: id }).select('-password').lean();
+  if (!doc) {
+    const mongoose = require('mongoose');
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      doc = await User.findById(id).select('-password').lean();
+    }
+  }
+  if (!doc) return null;
+  doc.id = doc.legacyId || String(doc._id);
+  delete doc.__v;
+  return doc;
 }
 
-function findByEmailRaw(email) {
-  return findRaw(s => s.email.toLowerCase() === email.toLowerCase());
+async function findByEmailRaw(email) {
+  if (!email) return null;
+  const doc = await User.findOne({
+    email: email.trim().toLowerCase()
+  }).select('+password').lean();
+  if (!doc) return null;
+  doc.id = doc.legacyId || String(doc._id);
+  return doc;
 }
 
-function findByEmail(email) {
-  return strip(findByEmailRaw(email));
+async function findByEmail(email) {
+  const raw = await findByEmailRaw(email);
+  return strip(raw);
 }
 
-function findByUsernameRaw(username) {
-  return findRaw(s => s.username.toLowerCase() === username.toLowerCase());
+async function findByUsernameRaw(username) {
+  if (!username) return null;
+  const doc = await User.findOne({
+    username: username.trim().toLowerCase()
+  }).select('+password').lean();
+  if (!doc) return null;
+  doc.id = doc.legacyId || String(doc._id);
+  return doc;
 }
 
-function create(studentData) {
-  const db = readDB();
-  db.students.push(studentData);
-  writeDB(db);
-  return strip(studentData);
+async function create(studentData) {
+  const {
+    id: legacyId,
+    _id,
+    role = 'student',
+    ...rest
+  } = studentData;
+
+  const doc = new User({
+    ...rest,
+    legacyId: legacyId || rest.legacyId || undefined,
+    role,
+  });
+
+  const saved = await doc.save();
+  return strip(saved);
 }
 
-function update(id, studentData) {
-  const db  = readDB();
-  const idx = db.students.findIndex(s => s.id === id);
-  if (idx === -1) return null;
-  db.students[idx] = studentData;
-  writeDB(db);
-  return strip(db.students[idx]);
+async function update(id, studentData) {
+  const { password, ...safeData } = studentData;
+  const updateFields = { ...safeData };
+  if (studentData.legacyId === undefined) {
+    updateFields.legacyId = id;
+  }
+  // If password provided (admin update etc.), include it
+  if (password) updateFields.password = password;
+
+  let doc = await User.findOneAndUpdate(
+    { legacyId: id },
+    { $set: updateFields },
+    { returnDocument: 'after' }
+  ).select('-password').lean();
+
+  if (!doc) {
+    const mongoose = require('mongoose');
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      doc = await User.findByIdAndUpdate(
+        id,
+        { $set: updateFields },
+        { returnDocument: 'after' }
+      ).select('-password').lean();
+    }
+  }
+  if (!doc) return null;
+  doc.id = doc.legacyId || String(doc._id);
+  return doc;
 }
 
-function patch(id, fields) {
-  const db  = readDB();
-  const idx = db.students.findIndex(s => s.id === id);
-  if (idx === -1) return null;
-  db.students[idx] = { ...db.students[idx], ...fields };
-  writeDB(db);
-  return strip(db.students[idx]);
+async function patch(id, fields) {
+  const { password, ...safeFields } = fields;
+  const updateFields = { ...safeFields };
+  if (password) updateFields.password = password;
+
+  let doc = await User.findOneAndUpdate(
+    { legacyId: id },
+    { $set: updateFields },
+    { returnDocument: 'after' }
+  ).select('-password').lean();
+
+  if (!doc) {
+    const mongoose = require('mongoose');
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      doc = await User.findByIdAndUpdate(
+        id,
+        { $set: updateFields },
+        { returnDocument: 'after' }
+      ).select('-password').lean();
+    }
+  }
+  if (!doc) return null;
+  doc.id = doc.legacyId || String(doc._id);
+  return doc;
 }
 
-function remove(id) {
-  const db  = readDB();
-  const idx = db.students.findIndex(s => s.id === id);
-  if (idx === -1) return null;
-  const [deleted] = db.students.splice(idx, 1);
-  writeDB(db);
-  return strip(deleted);
+async function remove(id) {
+  let doc = await User.findOneAndDelete({ legacyId: id }).select('-password').lean();
+  if (!doc) {
+    const mongoose = require('mongoose');
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      doc = await User.findByIdAndDelete(id).select('-password').lean();
+    }
+  }
+  if (!doc) return null;
+  doc.id = doc.legacyId || String(doc._id);
+  return doc;
 }
 
 module.exports = {

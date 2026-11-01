@@ -5,14 +5,12 @@ import api, { loginStudent } from '../services/api';
 const AuthContext = createContext(null);
 
 /**
- * Authenticate a student via the Task 10 JWT endpoint.
+ * Authenticate a student via the Task 10/11 JWT endpoint.
  *
  * On success:
- *  1. Stores the JWT in sessionStorage["token"] (required by Task 10 spec).
- *     Note: sessionStorage is accessible to JS and is not XSS-safe; a
- *     HttpOnly cookie would be more secure in production. The assignment
- *     explicitly requires sessionStorage.
- *  2. Returns a safe user object (no password, no hash).
+ *  1. Stores the JWT in sessionStorage["token"] (Task 10 requirement).
+ *  2. Stores the verified role in sessionStorage["role"] (Task 11 RBAC requirement).
+ *  3. Returns a safe user object (no password, no hash).
  *
  * On failure:
  *  Falls back to the legacy /students/login endpoint so that existing
@@ -21,18 +19,19 @@ const AuthContext = createContext(null);
 async function authenticateStudentJWT(email, password) {
   try {
     const data = await loginStudent({ email, password });
-    // data = { message, token, tokenType, expiresIn, student }
-    if (data && data.token && data.student) {
-      // Store JWT in sessionStorage (Task 10 requirement)
+    // data = { message, token, tokenType, expiresIn, student?, user?, role? }
+    if (data && data.token) {
       sessionStorage.setItem('token', data.token);
-      const student = data.student;
+      const account = data.student || data.user || {};
+      const verifiedRole = data.role || account.role || 'student';
+      sessionStorage.setItem('role', verifiedRole);
       return {
-        email:      student.email,
-        username:   student.username || student.email.split('@')[0],
-        fullname:   student.fullname,
-        department: student.department || '',
-        role:       'student',
-        createdAt:  student.createdAt,
+        email:      account.email || email,
+        username:   account.username || (account.email ? account.email.split('@')[0] : email.split('@')[0]),
+        fullname:   account.fullname || 'Student',
+        department: account.department || '',
+        role:       verifiedRole,
+        createdAt:  account.createdAt || Date.now(),
       };
     }
   } catch (jwtErr) {
@@ -46,33 +45,26 @@ async function authenticateStudentJWT(email, password) {
       // Other HTTP error — propagate
       return null;
     }
-    // Network error or server config error — try legacy
   }
 
   // ── Legacy fallback: /students/login (existing djb2+btoa students) ──────────
   try {
     const res = await api.post('/students/login', { email, password });
     if (res.data && res.data.student) {
-      // Legacy login doesn't return a JWT; clear any stale token
       sessionStorage.removeItem('token');
       const student = res.data.student;
+      const verifiedRole = res.data.role || student.role || 'student';
+      sessionStorage.setItem('role', verifiedRole);
       return {
         email:      student.email,
         username:   student.username,
         fullname:   student.fullname,
         department: student.department || '',
-        role:       'student',
+        role:       verifiedRole,
         createdAt:  student.createdAt,
       };
     }
-  } catch (legacyErr) {
-    if (
-      legacyErr.response &&
-      (legacyErr.response.status === 401 || legacyErr.response.status === 400)
-    ) {
-      return null;
-    }
-    // Network / server error
+  } catch {
     return null;
   }
   return null;
@@ -82,10 +74,15 @@ export function AuthProvider({ children }) {
   const [user, setUser]       = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Restore session from localStorage on mount
+  // Restore session from localStorage on mount (and sync sessionStorage role)
   useEffect(() => {
     const session = getSession();
-    if (session) setUser(session.user);
+    if (session && session.user) {
+      setUser(session.user);
+      if (session.user.role) {
+        sessionStorage.setItem('role', session.user.role);
+      }
+    }
     setLoading(false);
   }, []);
 
@@ -94,18 +91,52 @@ export function AuthProvider({ children }) {
     let authenticated = null;
     try {
       if (role === 'admin') {
-        // Validate admin credentials client-side (existing behaviour)
-        authenticated = authenticateAdmin(email, password);
-        if (authenticated) {
-          // Also get a JWT from the backend so admin can call protected course write routes
+        // 1. Try unified backend login endpoint (/api/v1/auth/login)
+        try {
+          const res = await api.post('/api/v1/auth/login', { email, password });
+          const data = res.data;
+          const account = data.user || data.student || {};
+          const verifiedRole = data.role || account.role;
+          if (data && data.token && verifiedRole === 'admin') {
+            sessionStorage.setItem('token', data.token);
+            sessionStorage.setItem('role', 'admin');
+            authenticated = {
+              email:      account.email || email,
+              username:   account.username || 'admin',
+              fullname:   account.fullname || 'Administrator',
+              role:       'admin',
+              createdAt:  account.createdAt || Date.now(),
+            };
+          }
+        } catch {
+          // If /api/v1/auth/login fails, attempt admin-login endpoint
+        }
+
+        // 2. Try /api/v1/auth/admin-login endpoint
+        if (!authenticated) {
           try {
             const res = await api.post('/api/v1/auth/admin-login', { email, password });
-            if (res.data && res.data.token) {
-              sessionStorage.setItem('token', res.data.token);
+            const data = res.data;
+            if (data && data.token) {
+              sessionStorage.setItem('token', data.token);
+              const account = data.user || data.student || {};
+              const verifiedRole = data.role || account.role || 'admin';
+              sessionStorage.setItem('role', verifiedRole);
+              authenticated = {
+                email:      account.email || email,
+                username:   account.username || 'admin',
+                fullname:   account.fullname || 'Administrator',
+                role:       verifiedRole,
+                createdAt:  account.createdAt || Date.now(),
+              };
             }
           } catch {
-            // Non-fatal: admin dashboard still works without JWT for read operations
-            sessionStorage.removeItem('token');
+            // 3. Fallback: validate admin credentials client-side if offline
+            const clientAdmin = authenticateAdmin(email, password);
+            if (clientAdmin) {
+              authenticated = clientAdmin;
+              sessionStorage.setItem('role', 'admin');
+            }
           }
         }
       } else {
@@ -122,8 +153,9 @@ export function AuthProvider({ children }) {
   }, []);
 
   const logout = useCallback(() => {
-    // Remove JWT from sessionStorage (Task 10)
+    // Remove JWT and role from sessionStorage (Task 10 & 11)
     sessionStorage.removeItem('token');
+    sessionStorage.removeItem('role');
     // Remove session from localStorage
     destroySession();
     setUser(null);

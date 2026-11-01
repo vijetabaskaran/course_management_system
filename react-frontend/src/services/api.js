@@ -60,4 +60,56 @@ export async function loginStudent(credentials) {
   return res.data;
 }
 
+// ── Enrollment API helpers (Task 12) ──────────────────────────────────────────
+
+/**
+ * Enroll authenticated student in a course via POST /api/v1/enrollments.
+ * @param {string} courseId
+ * @returns {Promise<{ success, message, enrollment }>}
+ */
+export async function enrollInCourse(courseId) {
+  const res = await api.post("/api/v1/enrollments", { courseId });
+  return res.data;
+}
+
+/**
+ * Fetch authenticated student's courses via GET /api/v1/enrollments/my-courses.
+ * @returns {Promise<{ success, count, enrollments }>}
+ */
+export async function getMyCourses() {
+  const res = await api.get("/api/v1/enrollments/my-courses");
+  return res.data;
+}
+
+/**
+ * Unenroll authenticated student from a course via DELETE /api/v1/enrollments/:courseId.
+ * @param {string} courseId
+ * @returns {Promise<{ success, message, unregisteredCourseId, deleted }>}
+ */
+export async function unenrollFromCourse(courseId) {
+  const res = await api.delete(`/api/v1/enrollments/${courseId}`);
+  return res.data;
+}
+
+// ── Progress API helpers (Task 13) ────────────────────────────────────────────
+
+/**
+ * Fetch authenticated student's learning progress via GET /api/v1/progress/my-progress.
+ * @returns {Promise<{ message: string, totalCourses: number, progress: Array }>}
+ */
+export async function getMyProgress() {
+  const res = await api.get("/api/v1/progress/my-progress");
+  return res.data;
+}
+
+/**
+ * Update authenticated student's progress via PUT /api/v1/progress.
+ * @param {{ courseId: string, completedLessons: number, totalLessons: number }} data
+ * @returns {Promise<{ message: string, progress: object }>}
+ */
+export async function updateProgress(data) {
+  const res = await api.put("/api/v1/progress", data);
+  return res.data;
+}
+
 export default api;

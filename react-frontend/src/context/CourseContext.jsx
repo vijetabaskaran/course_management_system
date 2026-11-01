@@ -158,26 +158,35 @@ export function CourseProvider({ children }) {
 
   // ── Enrollments ──────────────────────────────────────────────
   function isEnrolled(studentEmail, courseId) {
+    if (!studentEmail || !courseId) return false;
+    const lowerEmail = studentEmail.toLowerCase().trim();
     return enrollments.some(
-      (e) => e.studentEmail === studentEmail && e.courseId === courseId
+      (e) => (e.studentEmail && e.studentEmail.toLowerCase().trim() === lowerEmail) && e.courseId === courseId
     );
   }
 
   async function enrollStudent(studentEmail, courseId) {
-    if (isEnrolled(studentEmail, courseId)) return null;
+    const response = await api.post("/api/v1/enrollments", { courseId });
+    const newEnroll = response.data?.enrollment || response.data;
+    if (studentEmail) setProgress(studentEmail, courseId, 0);
+    setEnrollments((prev) => [...prev, newEnroll]);
+    return response.data;
+  }
 
-    const response = await api.post("/enrollments", {
-      studentEmail,
-      courseId,
-      enrolledAt: Date.now(),
-    });
-    setProgress(studentEmail, courseId, 0);
-    setEnrollments((prev) => [...prev, response.data]);
+  async function unenrollStudent(studentEmail, courseId) {
+    const response = await api.delete(`/api/v1/enrollments/${courseId}`);
+    setEnrollments((prev) => prev.filter(e => {
+      const matchEmail = studentEmail && e.studentEmail && e.studentEmail.toLowerCase().trim() === studentEmail.toLowerCase().trim();
+      const matchCourse = e.courseId === courseId;
+      return !(matchEmail && matchCourse);
+    }));
     return response.data;
   }
 
   function getStudentEnrollments(studentEmail) {
-    return enrollments.filter((e) => e.studentEmail === studentEmail);
+    if (!studentEmail) return [];
+    const lowerEmail = studentEmail.toLowerCase().trim();
+    return enrollments.filter((e) => e.studentEmail && e.studentEmail.toLowerCase().trim() === lowerEmail);
   }
 
   function getCourseEnrollments(courseId) {
@@ -207,6 +216,7 @@ export function CourseProvider({ children }) {
         findStudentByUsername,
         // enrollments
         enrollStudent,
+        unenrollStudent,
         isEnrolled,
         getStudentEnrollments,
         getCourseEnrollments,

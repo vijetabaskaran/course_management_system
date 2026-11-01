@@ -75,10 +75,11 @@ function protect(req, res, next) {
   }
 
   // 6. Trust only the verified payload — attach minimal identity to request
-  // The payload contains { sub: studentId, email } (no passwords, no hashes).
+  // The payload contains { sub: userId, email, role } (no passwords, no hashes).
   req.user = {
     id:    payload.sub,
     email: payload.email,
+    role:  payload.role || 'student',
   };
 
   next();

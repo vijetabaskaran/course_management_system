@@ -9,6 +9,8 @@ import DomainSelector from '../components/DomainSelector';
 import CourseDetailModal from '../components/CourseDetailModal';
 import CourseLearningView from '../components/CourseLearningView';
 import CertificateModal from '../components/CertificateModal';
+import MyCourses from '../components/MyCourses';
+import MyLearningProgress from '../components/MyLearningProgress';
 import {
   getStudentCourseProgress,
   getStudentCourseUnitProgress,
@@ -30,6 +32,10 @@ const STUDENT_SECTIONS = [
   {
     key: 'courses', label: 'My Courses',
     icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>,
+  },
+  {
+    key: 'progress', label: 'Learning Progress',
+    icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20v-6M6 20V10M18 20V4"/></svg>,
   },
   {
     key: 'profile', label: 'My Profile',
@@ -221,15 +227,17 @@ function BrowseSection({ user, allCourses, enrollments, onEnrolled, onStartLearn
 
   const handleEnroll = async (courseId) => {
     const course = allCourses.find(c => c.id === courseId);
-    if (!course || isEnrolled(user.email, courseId)) return;
+    if (!course) return;
     setEnrolling(courseId);
     try {
-      await enrollStudent(user.email, courseId);
+      const res = await enrollStudent(user.email, courseId);
       onEnrolled();
-      toast(`Successfully enrolled in "${course.title || course.name}"!`);
+      const msg = res?.message || `Successfully enrolled in "${course.title || course.name}"!`;
+      toast(msg);
     } catch (err) {
       console.error('Enrollment failed:', err);
-      toast('Failed to enroll. Is the API running?');
+      const errMsg = err.response?.data?.message || 'Failed to enroll. Please try again.';
+      toast(errMsg);
     } finally {
       setEnrolling(null);
     }
@@ -457,7 +465,7 @@ function ProfileSection({ user, enrollments }) {
 }
 
 /* ── Main StudentDashboard ───────────────────────── */
-export default function StudentDashboard() {
+export default function StudentDashboard({ initialSection = 'overview' }) {
   const { user, loading: authLoading } = useAuth();
   const {
     courses: allCourses,
@@ -466,7 +474,7 @@ export default function StudentDashboard() {
     enrollStudent,
   } = useCourses();
 
-  const [activeSection, setActiveSection] = useState('overview');
+  const [activeSection, setActiveSection] = useState(initialSection);
   const [selectedCourseForLearning, setSelectedCourseForLearning] = useState(null);
   const [inspectCourseModal, setInspectCourseModal] = useState(null);
   const [certModalCourse, setCertModalCourse] = useState(null);
@@ -491,13 +499,15 @@ export default function StudentDashboard() {
   const handleEnrollFromModal = async (courseId) => {
     setInspectCourseModal(null);
     try {
-      await enrollStudent(user.email, courseId);
+      const res = await enrollStudent(user.email, courseId);
       const course = allCourses.find(c => c.id === courseId);
-      showToast(`Successfully enrolled in "${course?.title || course?.name}"!`);
+      const msg = res?.message || `Successfully enrolled in "${course?.title || course?.name}"!`;
+      showToast(msg);
       if (course) handleStartLearning(course);
     } catch (err) {
       console.error('Enrollment failed:', err);
-      showToast('Failed to enroll. Is the API running?');
+      const errMsg = err.response?.data?.message || 'Failed to enroll. Please try again.';
+      showToast(errMsg);
     }
   };
 
@@ -505,7 +515,7 @@ export default function StudentDashboard() {
   if (!user || user.role !== 'student') return <Navigate to="/" replace/>;
 
   // Student's own enrollments
-  const myEnrollments = enrollments.filter(e => e.studentEmail === user.email);
+  const myEnrollments = enrollments.filter(e => e.studentEmail && user?.email && e.studentEmail.toLowerCase().trim() === user.email.toLowerCase().trim());
 
   // Render course learning view if section is 'learn'
   if (activeSection === 'learn' && selectedCourseForLearning) {
@@ -527,7 +537,7 @@ export default function StudentDashboard() {
   }
 
   const breadcrumbLabels = {
-    overview: 'Overview', browse: 'Browse Courses', courses: 'My Courses', profile: 'My Profile',
+    overview: 'Overview', browse: 'Browse Courses', courses: 'My Courses', progress: 'Learning Progress', profile: 'My Profile',
   };
 
   const renderSection = () => {
@@ -559,13 +569,20 @@ export default function StudentDashboard() {
         );
       case 'courses':  
         return (
-          <MyCoursesSection
+          <MyCourses
             key={activeSection}
-            user={user}
-            allCourses={allCourses}
-            enrollments={enrollments}
+            onBrowse={() => setActiveSection('browse')}
             onStartLearning={handleStartLearning}
             onViewCertificate={handleViewCertificate}
+            onToast={showToast}
+          />
+        );
+      case 'progress':
+        return (
+          <MyLearningProgress
+            key={activeSection}
+            onBrowse={() => setActiveSection('browse')}
+            onToast={showToast}
           />
         );
       case 'profile':  

@@ -14,14 +14,15 @@
 const router     = require('express').Router();
 const controller = require('../controllers/courseController');
 const { protect } = require('../middleware/authMiddleware');
+const { authorizeRoles } = require('../middleware/roleMiddleware');
 
 // ── Public routes ─────────────────────────────────────────────────
 router.get   ('/',    controller.getAllCourses);
 router.get   ('/:id', controller.getCourseById);
 
-// ── Protected routes (valid JWT required) ─────────────────────────
-router.post  ('/',    protect, controller.createCourse);
-router.put   ('/:id', protect, controller.updateCourse);
-router.delete('/:id', protect, controller.deleteCourse);
+// ── Protected routes (Admin only: protect -> authorizeRoles('admin') -> controller)
+router.post  ('/',    protect, authorizeRoles('admin'), controller.createCourse);
+router.put   ('/:id', protect, authorizeRoles('admin'), controller.updateCourse);
+router.delete('/:id', protect, authorizeRoles('admin'), controller.deleteCourse);
 
 module.exports = router;
