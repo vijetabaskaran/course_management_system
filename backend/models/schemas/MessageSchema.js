@@ -43,6 +43,11 @@ const messageSchema = new mongoose.Schema(
       trim:      true,
       maxlength: [2000, 'Message cannot exceed 2000 characters.'],
     },
+    isRead: {
+      type:    Boolean,
+      default: false,
+      index:   true,
+    },
     readAt: {
       type:    Date,
       default: null,

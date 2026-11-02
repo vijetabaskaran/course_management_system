@@ -161,6 +161,12 @@ function initSocket(httpServer) {
         // Deliver to sender's socket (for immediate confirmation)
         socket.emit('message:receive', saved);
 
+        // Deliver updated unread count to recipient
+        try {
+          const unreadSummary = await messageService.getUnreadSummary({ id: saved.receiverId, email: saved.receiverEmail });
+          io.to(Array.from(targetRooms)).emit('unread:count', unreadSummary);
+        } catch (_) {}
+
         if (typeof ack === 'function') {
           ack({ success: true, message: saved });
         }
@@ -174,6 +180,37 @@ function initSocket(httpServer) {
         if (typeof ack === 'function') {
           ack({ success: false, error: err.message });
         }
+      }
+    });
+
+    // ── Mark Messages as Read Event ──────────────────────────────────────────
+    socket.on('message:mark_read', async (data, ack) => {
+      try {
+        const { senderId } = data || {};
+        const result = await messageService.markConversationAsRead(socket.user, senderId);
+
+        // Send updated unread count back to the reader
+        socket.emit('unread:count', {
+          success: true,
+          total: result.remainingUnread,
+          bySender: result.bySender,
+        });
+
+        // Broadcast read receipt to original sender's rooms
+        try {
+          const senderAliases = await require('../models/messageModel').resolveUserAliases(senderId);
+          const senderRooms = senderAliases.map(id => `user:${id}`);
+          io.to(senderRooms).emit('message:read_receipt', {
+            readBy: socket.user.id,
+            readByEmail: socket.user.email,
+            senderId,
+            readAt: result.readAt,
+          });
+        } catch (_) {}
+
+        if (typeof ack === 'function') ack(result);
+      } catch (err) {
+        if (typeof ack === 'function') ack({ success: false, error: err.message });
       }
     });
 

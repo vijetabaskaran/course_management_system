@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useChatNotifications } from '../context/ChatNotificationContext';
 import { useCourses } from '../context/CourseContext';
 import Sidebar from '../components/Sidebar';
 import StatCard from '../components/StatCard';
@@ -1000,6 +1001,7 @@ function SettingsSection({ toast }) {
 /* ── Main AdminDashboard ──────────────────────── */
 export default function AdminDashboard() {
   const { user, loading: authLoading } = useAuth();
+  const { unreadCount } = useChatNotifications();
   const {
     courses, students, enrollments,
     loading: dataLoading,
@@ -1023,10 +1025,35 @@ export default function AdminDashboard() {
 
   const breadcrumbLabels = {
     overview: 'Overview', courses: 'Course Management',
-    students: 'Student Management', enrollments: 'Enrollment Monitoring', settings: 'System Settings',
+    students: 'Student Management', enrollments: 'Enrollment Monitoring', chat: 'Chat', settings: 'System Settings',
   };
 
-  if (authLoading || dataLoading) return null;
+  if (authLoading || dataLoading) {
+    return (
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100vh',
+        background: 'var(--bg-main, #0f172a)',
+        color: 'var(--text-secondary, #94a3b8)',
+        fontFamily: 'sans-serif',
+      }}>
+        <div style={{
+          width: '36px',
+          height: '36px',
+          border: '3px solid rgba(67, 97, 238, 0.2)',
+          borderTopColor: '#4361ee',
+          borderRadius: '50%',
+          animation: 'spin 0.8s linear infinite',
+          marginBottom: '1rem',
+        }} />
+        <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>Loading Admin Dashboard...</span>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
   if (!user || user.role !== 'admin') return <Navigate to="/" replace/>;
 
   const handleCourseModalSave = async (data) => {
@@ -1100,10 +1127,52 @@ export default function AdminDashboard() {
             <span className="admin-label">Administrator</span>
             <span className="breadcrumb">{breadcrumbLabels[activeSection]}</span>
           </div>
-          <div className="topbar-right">
-            <div className="user-avatar" style={{ background: 'linear-gradient(135deg,#5C4E43,#3F352C)', borderColor: 'rgba(255,253,248,0.15)' }} title="Admin">
-              AD
-            </div>
+                    <div className="topbar-right" style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <button
+              className="notification-bell-btn"
+              onClick={() => setActiveSection('chat')}
+              title={unreadCount > 0 ? `${unreadCount} unread message(s) - Click to view` : 'Notifications'}
+              style={{
+                position: 'relative',
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                padding: '6px',
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--text-secondary, #64748b)',
+              }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+              </svg>
+              {unreadCount > 0 && (
+                <span style={{
+                  position: 'absolute',
+                  top: '2px',
+                  right: '2px',
+                  background: '#ef4444',
+                  color: '#ffffff',
+                  fontSize: '0.65rem',
+                  fontWeight: 700,
+                  borderRadius: '10px',
+                  padding: '1px 5px',
+                  minWidth: '16px',
+                  height: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  lineHeight: 1,
+                  boxShadow: '0 0 5px rgba(239, 68, 68, 0.5)',
+                }}>
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
+            </button>
+            <div className="user-avatar" title={`${user.fullname} (Admin)`}>{getInitials(user.fullname)}</div>
           </div>
         </header>
 

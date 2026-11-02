@@ -140,6 +140,13 @@ async function getHistory(user, targetUserId, queryOptions = {}) {
   const targetActualId = targetUser.id || targetUser.legacyId || String(targetUser._id);
   const result = await messageModel.getConversation(currentUserId, targetActualId, queryOptions);
 
+  // When opening conversation, mark messages received by current user as read
+  const [receiverAliases, senderAliases] = await Promise.all([
+    messageModel.resolveUserAliases(currentUserId),
+    messageModel.resolveUserAliases(targetActualId),
+  ]);
+  await messageModel.markAsRead(receiverAliases, senderAliases);
+
   return {
     success: true,
     participant: {
@@ -154,30 +161,93 @@ async function getHistory(user, targetUserId, queryOptions = {}) {
 }
 
 /**
- * Get all available contacts (students + admins) for the chat contact list.
+ * Get all available contacts (students + admins) for the chat contact list with unread counts.
  * @param {{ id: string, email: string, role: string }} currentUser
  */
 async function getContacts(currentUser) {
   const currentUserId = String(currentUser?.id || currentUser?.email || '').trim();
-  const allUsers = await User.find({}).select('-password').lean();
+  const receiverAliases = await messageModel.resolveUserAliases(currentUserId);
+  const [allUsers, unreadData] = await Promise.all([
+    User.find({}).select('-password').lean(),
+    messageModel.getUnreadCounts(receiverAliases),
+  ]);
 
   const contacts = allUsers
-    .map(u => ({
-      id: u.legacyId || String(u._id),
-      _id: String(u._id),
-      fullname: u.fullname || u.username || 'User',
-      email: u.email,
-      role: u.role || 'student',
-      department: u.department || '',
-    }))
+    .map(u => {
+      const id = u.legacyId || String(u._id);
+      const email = (u.email || '').toLowerCase();
+      const unreadCount = unreadData.bySender[id] || unreadData.bySender[String(u._id)] || (email ? unreadData.bySender[email] : 0) || 0;
+      return {
+        id,
+        _id: String(u._id),
+        fullname: u.fullname || u.username || 'User',
+        email: u.email,
+        role: u.role || 'student',
+        department: u.department || '',
+        unreadCount,
+      };
+    })
     .filter(u => u.id !== currentUserId && u.email !== currentUser?.email);
 
   return contacts;
+}
+
+/**
+ * Retrieve unread count summary for the authenticated user.
+ */
+async function getUnreadSummary(user) {
+  if (!user || (!user.id && !user.email)) {
+    const err = new Error('Authentication required.');
+    err.statusCode = 401;
+    throw err;
+  }
+  const receiverAliases = await messageModel.resolveUserAliases(user.id || user.email);
+  const unreadData = await messageModel.getUnreadCounts(receiverAliases);
+  return {
+    success: true,
+    total: unreadData.total,
+    bySender: unreadData.bySender,
+  };
+}
+
+/**
+ * Mark messages received by the user from a target sender as read.
+ */
+async function markConversationAsRead(user, senderId) {
+  if (!user || (!user.id && !user.email)) {
+    const err = new Error('Authentication required.');
+    err.statusCode = 401;
+    throw err;
+  }
+  const cleanSenderId = String(senderId || '').trim();
+  if (!cleanSenderId) {
+    const err = new Error('Sender ID is required.');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const [receiverAliases, senderAliases] = await Promise.all([
+    messageModel.resolveUserAliases(user.id || user.email),
+    messageModel.resolveUserAliases(cleanSenderId),
+  ]);
+
+  const result = await messageModel.markAsRead(receiverAliases, senderAliases);
+  const updatedUnread = await messageModel.getUnreadCounts(receiverAliases);
+
+  return {
+    success: true,
+    markedCount: result.modifiedCount,
+    readAt: result.readAt,
+    remainingUnread: updatedUnread.total,
+    bySender: updatedUnread.bySender,
+  };
 }
 
 module.exports = {
   sendMessage,
   getHistory,
   getContacts,
+  getUnreadSummary,
+  markConversationAsRead,
 };
 

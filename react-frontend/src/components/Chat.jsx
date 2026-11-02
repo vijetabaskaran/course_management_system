@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useChatNotifications } from '../context/ChatNotificationContext';
 import { getSocket, connectSocket } from '../api/socketClient';
 import api from '../services/api';
 
 export default function Chat() {
   const { user } = useAuth();
+  const { markContactAsRead, setActiveChatContactId, unreadByContact } = useChatNotifications();
   const [contacts, setContacts] = useState([]);
   const [selectedContact, setSelectedContact] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -78,9 +80,14 @@ export default function Chat() {
 
   useEffect(() => {
     if (selectedContact) {
+      setActiveChatContactId(selectedContact.id);
       fetchMessages(selectedContact.id);
+      markContactAsRead(selectedContact.id);
     }
-  }, [selectedContact, fetchMessages]);
+    return () => {
+      setActiveChatContactId(null);
+    };
+  }, [selectedContact, fetchMessages, setActiveChatContactId, markContactAsRead]);
 
   // ── Socket.IO Connection & Events ─────────────────────────────────────────
   useEffect(() => {
@@ -125,6 +132,7 @@ export default function Chat() {
       console.log('[Chat.jsx] isCurrentConversation:', isCurrentConversation, { matchesContact, matchesUser });
 
       if (isCurrentConversation) {
+        markContactAsRead(activeContact.id);
         setMessages((prev) => {
           // Avoid duplicate messages
           if (prev.some((m) => m._id === newMsg._id || (m.createdAt === newMsg.createdAt && m.content === newMsg.content))) {
@@ -284,6 +292,7 @@ export default function Chat() {
           ) : (
             filteredContacts.map((contact) => {
               const isSelected = selectedContact?.id === contact.id;
+              const unread = unreadByContact[contact.id] || unreadByContact[contact._id] || (contact.email ? unreadByContact[contact.email.toLowerCase()] : 0) || contact.unreadCount || 0;
               return (
                 <div
                   key={contact.id}
@@ -292,7 +301,9 @@ export default function Chat() {
                     padding: '0.75rem 1rem',
                     borderBottom: '1px solid var(--border)',
                     cursor: 'pointer',
-                    background: isSelected ? 'rgba(168, 143, 112, 0.15)' : 'transparent',
+                    background: isSelected
+                      ? 'rgba(168, 143, 112, 0.15)'
+                      : (unread > 0 ? 'rgba(239, 68, 68, 0.05)' : 'transparent'),
                     display: 'flex',
                     alignItems: 'center',
                     gap: '12px',
@@ -300,6 +311,7 @@ export default function Chat() {
                   }}
                 >
                   <div style={{
+                    position: 'relative',
                     width: '38px',
                     height: '38px',
                     borderRadius: '50%',
@@ -313,35 +325,65 @@ export default function Chat() {
                     flexShrink: 0,
                   }}>
                     {contact.fullname.charAt(0).toUpperCase()}
+                    {unread > 0 && !isSelected && (
+                      <span style={{
+                        position: 'absolute',
+                        top: '-2px',
+                        right: '-2px',
+                        width: '10px',
+                        height: '10px',
+                        borderRadius: '50%',
+                        background: '#ef4444',
+                        border: '2px solid var(--bg-card, #fff)',
+                      }} />
+                    )}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{
-                        fontWeight: isSelected ? 600 : 500,
+                        fontWeight: unread > 0 ? 700 : (isSelected ? 600 : 500),
                         fontSize: '0.9rem',
-                        color: 'var(--text-primary)',
+                        color: unread > 0 && !isSelected ? '#ef4444' : 'var(--text-primary)',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
                       }}>
                         {contact.fullname}
                       </span>
-                      <span style={{
-                        fontSize: '0.7rem',
-                        padding: '1px 6px',
-                        borderRadius: '4px',
-                        background: contact.role === 'admin' ? 'rgba(67, 97, 238, 0.1)' : 'rgba(168, 143, 112, 0.1)',
-                        color: contact.role === 'admin' ? '#4361ee' : '#A88F70',
-                        fontWeight: 600,
-                        textTransform: 'uppercase',
-                      }}>
-                        {contact.role}
-                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        {unread > 0 && (
+                          <span style={{
+                            background: '#ef4444',
+                            color: '#ffffff',
+                            fontSize: '0.68rem',
+                            fontWeight: 700,
+                            padding: '1px 6px',
+                            borderRadius: '10px',
+                            minWidth: '18px',
+                            textAlign: 'center',
+                            lineHeight: 1.2,
+                          }}>
+                            {unread > 99 ? '99+' : unread}
+                          </span>
+                        )}
+                        <span style={{
+                          fontSize: '0.7rem',
+                          padding: '1px 6px',
+                          borderRadius: '4px',
+                          background: contact.role === 'admin' ? 'rgba(67, 97, 238, 0.1)' : 'rgba(168, 143, 112, 0.1)',
+                          color: contact.role === 'admin' ? '#4361ee' : '#A88F70',
+                          fontWeight: 600,
+                          textTransform: 'uppercase',
+                        }}>
+                          {contact.role}
+                        </span>
+                      </div>
                     </div>
                     <p style={{
                       margin: '2px 0 0 0',
                       fontSize: '0.75rem',
-                      color: 'var(--text-secondary)',
+                      color: unread > 0 && !isSelected ? 'var(--text-primary)' : 'var(--text-secondary)',
+                      fontWeight: unread > 0 && !isSelected ? 600 : 400,
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                       whiteSpace: 'nowrap',

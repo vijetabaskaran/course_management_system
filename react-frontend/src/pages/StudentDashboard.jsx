@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCourses } from '../context/CourseContext';
+import { useChatNotifications } from '../context/ChatNotificationContext';
 import Sidebar from '../components/Sidebar';
 import StatCard from '../components/StatCard';
 import Toast from '../components/Toast';
@@ -400,6 +401,7 @@ function ProfileSection({ user, enrollments }) {
 /* ── Main StudentDashboard ───────────────────────── */
 export default function StudentDashboard({ initialSection = 'overview' }) {
   const { user, loading: authLoading } = useAuth();
+  const { unreadCount } = useChatNotifications();
   const {
     courses: allCourses,
     enrollments,
@@ -449,7 +451,32 @@ export default function StudentDashboard({ initialSection = 'overview' }) {
     }
   };
 
-  if (authLoading || dataLoading) return null;
+  if (authLoading || dataLoading) {
+    return (
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100vh',
+        background: 'var(--bg-main, #f8fafc)',
+        color: 'var(--text-secondary, #64748b)',
+        fontFamily: 'sans-serif',
+      }}>
+        <div style={{
+          width: '36px',
+          height: '36px',
+          border: '3px solid rgba(168, 143, 112, 0.2)',
+          borderTopColor: '#A88F70',
+          borderRadius: '50%',
+          animation: 'spin 0.8s linear infinite',
+          marginBottom: '1rem',
+        }} />
+        <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>Loading Dashboard...</span>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
   if (!user || user.role !== 'student') return <Navigate to="/" replace/>;
 
   // Student's own enrollments
@@ -561,7 +588,51 @@ export default function StudentDashboard({ initialSection = 'overview' }) {
           <div className="topbar-left">
             <span className="breadcrumb">{breadcrumbLabels[activeSection]}</span>
           </div>
-          <div className="topbar-right">
+                    <div className="topbar-right" style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <button
+              className="notification-bell-btn"
+              onClick={() => setActiveSection('chat')}
+              title={unreadCount > 0 ? `${unreadCount} unread message(s) - Click to view` : 'Notifications'}
+              style={{
+                position: 'relative',
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                padding: '6px',
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--text-secondary, #64748b)',
+              }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+              </svg>
+              {unreadCount > 0 && (
+                <span style={{
+                  position: 'absolute',
+                  top: '2px',
+                  right: '2px',
+                  background: '#ef4444',
+                  color: '#ffffff',
+                  fontSize: '0.65rem',
+                  fontWeight: 700,
+                  borderRadius: '10px',
+                  padding: '1px 5px',
+                  minWidth: '16px',
+                  height: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  lineHeight: 1,
+                  boxShadow: '0 0 5px rgba(239, 68, 68, 0.5)',
+                }}>
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
+            </button>
             <div className="user-avatar" title={`${user.fullname} (Click to view Profile)`} style={{ cursor: 'pointer' }} onClick={() => setActiveSection('profile')}>{getInitials(user.fullname)}</div>
           </div>
         </header>

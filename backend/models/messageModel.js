@@ -99,9 +99,95 @@ async function getConversationPartners(userId) {
   return Array.from(set);
 }
 
+/**
+ * Mark messages sent by sender to receiver as read.
+ */
+async function markAsRead(receiverIdentifiers, senderIdentifiers) {
+  const query = {
+    $and: [
+      {
+        $or: [
+          { receiverId: { $in: receiverIdentifiers } },
+          { receiverEmail: { $in: receiverIdentifiers } },
+        ],
+      },
+      {
+        $or: [
+          { senderId: { $in: senderIdentifiers } },
+          { senderEmail: { $in: senderIdentifiers } },
+        ],
+      },
+      {
+        $or: [
+          { isRead: false },
+          { readAt: null },
+        ],
+      },
+    ],
+  };
+
+  const now = new Date();
+  const result = await Message.updateMany(query, {
+    $set: {
+      isRead: true,
+      readAt: now,
+    },
+  });
+
+  return {
+    matchedCount: result.matchedCount,
+    modifiedCount: result.modifiedCount,
+    readAt: now,
+  };
+}
+
+/**
+ * Get count of unread messages received by user, grouped by sender.
+ */
+async function getUnreadCounts(receiverIdentifiers) {
+  const query = {
+    $and: [
+      {
+        $or: [
+          { receiverId: { $in: receiverIdentifiers } },
+          { receiverEmail: { $in: receiverIdentifiers } },
+        ],
+      },
+      {
+        $or: [
+          { isRead: false },
+          { readAt: null },
+        ],
+      },
+    ],
+  };
+
+  const [total, bySenderAggregation] = await Promise.all([
+    Message.countDocuments(query),
+    Message.aggregate([
+      { $match: query },
+      { $group: { _id: '$senderId', count: { $sum: 1 }, senderEmail: { $first: '$senderEmail' } } },
+    ]),
+  ]);
+
+  const bySender = {};
+  for (const item of bySenderAggregation) {
+    if (item._id) bySender[item._id] = item.count;
+    if (item.senderEmail) bySender[item.senderEmail.toLowerCase()] = item.count;
+  }
+
+  return {
+    total,
+    bySender,
+  };
+}
+
 module.exports = {
   create,
   getConversation,
   getConversationPartners,
+  markAsRead,
+  getUnreadCounts,
+  resolveUserAliases,
 };
 

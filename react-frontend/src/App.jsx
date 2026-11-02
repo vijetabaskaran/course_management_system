@@ -18,9 +18,23 @@ function AuthRedirect({ children }) {
 /** Guard dashboard routes */
 function PrivateRoute({ children, requiredRole }) {
   const { user, loading } = useAuth();
-  if (loading) return null;
+  if (loading) {
+    return (
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100vh',
+        background: '#0f172a',
+        color: '#94a3b8',
+        fontFamily: 'sans-serif',
+      }}>
+        <span>Loading session...</span>
+      </div>
+    );
+  }
   if (!user) return <Navigate to="/" replace/>;
-  if (user.role !== requiredRole) return <Navigate to="/" replace/>;
+  if (user.role !== requiredRole) return <Navigate to={user.role === 'admin' ? '/admin-dashboard' : '/dashboard'} replace/>;
   return children;
 }
 

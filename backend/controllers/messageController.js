@@ -47,9 +47,38 @@ async function sendMessage(req, res, next) {
   }
 }
 
+/**
+ * GET /api/v1/messages/unread
+ * Retrieve unread count summary for authenticated user.
+ */
+async function getUnreadSummary(req, res, next) {
+  try {
+    const summary = await messageService.getUnreadSummary(req.user);
+    res.json(summary);
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * PATCH /api/v1/messages/:senderId/read
+ * Mark messages received from senderId as read.
+ */
+async function markAsRead(req, res, next) {
+  try {
+    const { senderId } = req.params;
+    const result = await messageService.markConversationAsRead(req.user, senderId);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getContacts,
   getHistory,
   sendMessage,
+  getUnreadSummary,
+  markAsRead,
 };
 
