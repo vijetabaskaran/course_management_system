@@ -54,61 +54,61 @@ print(f"Student: {user_name} | Course: {course} ({duration_weeks} weeks)")`
       quiz: [
         {
           question: 'Who created the Python programming language?',
-          options: ['Dennis Ritchie', 'Guido van Rossum', 'James Gosling', 'Bjarne Stroustrup'],
+          options: ["Dennis Ritchie","Guido van Rossum","James Gosling","Bjarne Stroustrup"],
           correctAnswer: 1,
           explanation: 'Guido van Rossum released Python in 1991 as a successor to the ABC language.'
         },
         {
           question: 'Which of the following is true about Python?',
-          options: ['It requires explicit variable type declarations', 'It is a compiled-only language', 'It is dynamically typed and interpreted', 'It uses curly braces {} to define code blocks'],
+          options: ["It requires explicit variable type declarations","It is a compiled-only language","It is dynamically typed and interpreted","It uses curly braces {} to define code blocks"],
           correctAnswer: 2,
           explanation: 'Python is interpreted line-by-line and dynamically determines variable types at runtime.'
         },
         {
           question: 'What is the correct file extension for Python files?',
-          options: ['.pyt', '.py', '.python', '.pt'],
-          correctAnswer: 1,
+          options: [".py",".pyt",".python",".pt"],
+          correctAnswer: 0,
           explanation: 'Python script files use the .py extension.'
         },
         {
           question: 'Which built-in function outputs text to the standard console?',
-          options: ['echo()', 'log()', 'print()', 'write()'],
-          correctAnswer: 2,
+          options: ["echo()","log()","write()","print()"],
+          correctAnswer: 3,
           explanation: 'print() displays output on the screen.'
         },
         {
           question: 'How are code blocks demarcated in Python?',
-          options: ['Semicolons at the end of each line', 'Indentation (whitespace)', 'Curly brackets {}', 'BEGIN and END keywords'],
-          correctAnswer: 1,
+          options: ["Semicolons at the end of each line","Curly brackets {}","Indentation (whitespace)","BEGIN and END keywords"],
+          correctAnswer: 2,
           explanation: 'Python relies on uniform indentation to delimit blocks of statements.'
         },
         {
           question: 'Which built-in Python function returns the memory address/identity of an object?',
-          options: ['addr()', 'id()', 'memory()', 'pointer()'],
+          options: ["addr()","id()","memory()","pointer()"],
           correctAnswer: 1,
           explanation: 'id() returns the unique memory address identifier of an object in CPython.'
         },
         {
           question: 'What is the boolean truth value of an empty string "" and integer 0 in Python?',
-          options: ['Both evaluate to True', 'Both evaluate to False', '0 is False, "" is True', '0 is True, "" is False'],
-          correctAnswer: 1,
+          options: ["Both evaluate to True","0 is False, \"\" is True","0 is True, \"\" is False","Both evaluate to False"],
+          correctAnswer: 3,
           explanation: 'In Python, 0, empty sequences, and None evaluate to False.'
         },
         {
           question: 'Which operator performs integer floor division in Python?',
-          options: ['/', '//', '%', 'div'],
-          correctAnswer: 1,
+          options: ["//","/","%","div"],
+          correctAnswer: 0,
           explanation: 'The // operator performs floor division, truncating fractional parts.'
         },
         {
           question: 'What does PEP stand for in the Python development ecosystem?',
-          options: ['Python Enhancement Proposal', 'Program Execution Protocol', 'Python Enterprise Package', 'Python Environment Path'],
-          correctAnswer: 0,
+          options: ["Program Execution Protocol","Python Enterprise Package","Python Enhancement Proposal","Python Environment Path"],
+          correctAnswer: 2,
           explanation: 'PEP stands for Python Enhancement Proposal, standardizing features and styling.'
         },
         {
           question: 'Which data type is immutable in Python?',
-          options: ['list', 'dict', 'set', 'tuple'],
+          options: ["list","dict","set","tuple"],
           correctAnswer: 3,
           explanation: 'Tuples, strings, integers, and floats are immutable in Python.'
         }
@@ -147,32 +147,32 @@ print("Passed thermal threshold:", is_passing)`
       quiz: [
         {
           question: 'What is the return type of 10 / 2 in Python 3?',
-          options: ['int', 'float', 'double', 'str'],
-          correctAnswer: 1,
+          options: ["int","double","str","float"],
+          correctAnswer: 3,
           explanation: 'Standard division (/) in Python always produces a float result (5.0).'
         },
         {
           question: 'Which operator is used for integer floor division?',
-          options: ['/', '//', '%', '**'],
-          correctAnswer: 1,
+          options: ["//","/","%","**"],
+          correctAnswer: 0,
           explanation: 'The // operator performs floor division, discarding fractional parts.'
         },
         {
           question: 'How do you check the data type of a variable x?',
-          options: ['typeof(x)', 'type(x)', 'x.getType()', 'checkType(x)'],
-          correctAnswer: 1,
+          options: ["typeof(x)","x.getType()","type(x)","checkType(x)"],
+          correctAnswer: 2,
           explanation: 'The built-in type(x) function returns the class type of an object.'
         },
         {
           question: 'What will bool("") evaluate to in Python?',
-          options: ['True', 'False', 'None', 'Error'],
+          options: ["True","False","None","Error"],
           correctAnswer: 1,
           explanation: 'Empty strings, empty collections, and numerical zero evaluate to False in boolean context.'
         },
         {
           question: 'Which of the following is a valid variable name in Python?',
-          options: ['2nd_student', 'student-name', 'student_name', 'class'],
-          correctAnswer: 2,
+          options: ["student_name","2nd_student","student-name","class"],
+          correctAnswer: 0,
           explanation: 'Variable names cannot start with numbers, contain hyphens, or use reserved keywords like class.'
         }
       ]
@@ -213,8 +213,8 @@ for score in scores:
       quiz: [
         {
           question: 'Which keyword is used for additional conditional branches after an initial if statement?',
-          options: ['else if', 'elseif', 'elif', 'then'],
-          correctAnswer: 2,
+          options: ["else if","elseif","then","elif"],
+          correctAnswer: 3,
           explanation: 'Python uses the short keyword `elif` for secondary condition branches.'
         },
         {
@@ -225,20 +225,20 @@ for score in scores:
         },
         {
           question: 'Which statement immediately exits a loop regardless of remaining iterations?',
-          options: ['exit', 'stop', 'continue', 'break'],
-          correctAnswer: 3,
+          options: ["exit","break","stop","continue"],
+          correctAnswer: 1,
           explanation: 'The `break` statement terminates the enclosing loop prematurely.'
         },
         {
           question: 'What is the output of range(5)?',
-          options: ['0, 1, 2, 3, 4', '1, 2, 3, 4, 5', '0, 1, 2, 3, 4, 5', '1, 2, 3, 4'],
-          correctAnswer: 0,
+          options: ["1, 2, 3, 4, 5","0, 1, 2, 3, 4, 5","0, 1, 2, 3, 4","1, 2, 3, 4"],
+          correctAnswer: 2,
           explanation: 'When called with one argument, range defaults to starting at 0 and stopping before that value.'
         },
         {
           question: 'Which loop is best suited when the exact number of iterations is known in advance?',
-          options: ['do-while loop', 'while loop', 'for loop', 'repeat-until loop'],
-          correctAnswer: 2,
+          options: ["for loop","do-while loop","while loop","repeat-until loop"],
+          correctAnswer: 0,
           explanation: 'The `for` loop is designed for iterating over predefined sequences or ranges.'
         }
       ]
@@ -279,20 +279,20 @@ print(result)`
       quiz: [
         {
           question: 'Which keyword is used to define a function in Python?',
-          options: ['function', 'def', 'fun', 'define'],
+          options: ["function","def","fun","define"],
           correctAnswer: 1,
           explanation: 'Functions in Python are declared using the `def` keyword.'
         },
         {
           question: 'Which Python collection is ordered, mutable, and allows duplicate elements?',
-          options: ['Tuple', 'Set', 'List', 'Dictionary'],
+          options: ["Tuple","Set","List","Dictionary"],
           correctAnswer: 2,
           explanation: 'Lists are enclosed in square brackets `[]`, maintain insertion order, and allow modifications.'
         },
         {
           question: 'What is the main characteristic of a Python Set?',
-          options: ['Contains unique, unordered elements', 'Keeps elements sorted automatically', 'Allows duplicate keys', 'Is immutable like a tuple'],
-          correctAnswer: 0,
+          options: ["Keeps elements sorted automatically","Allows duplicate keys","Is immutable like a tuple","Contains unique, unordered elements"],
+          correctAnswer: 3,
           explanation: 'Sets enforce uniqueness — duplicate elements are automatically stripped.'
         },
         {
@@ -303,7 +303,7 @@ print(result)`
         },
         {
           question: 'What happens if you attempt to modify an element of a Tuple after creation?',
-          options: ['The tuple is updated silently', 'A TypeError is raised', 'A new tuple is automatically created', 'The modification is ignored'],
+          options: ["The tuple is updated silently","A TypeError is raised","A new tuple is automatically created","The modification is ignored"],
           correctAnswer: 1,
           explanation: 'Tuples are immutable; attempting assignment on an index raises a TypeError.'
         }
@@ -350,32 +350,32 @@ except Exception as err:
       quiz: [
         {
           question: 'What is the purpose of the __init__ method in a Python class?',
-          options: ['Destroys instances', 'Initializes instance attributes when an object is created', 'Imports external libraries', 'Defines private functions'],
-          correctAnswer: 1,
+          options: ["Initializes instance attributes when an object is created","Destroys instances","Imports external libraries","Defines private functions"],
+          correctAnswer: 0,
           explanation: '`__init__` is the constructor method called when instantiating a new class object.'
         },
         {
           question: 'What keyword represents the instance of the class itself within instance methods?',
-          options: ['this', 'self', 'me', 'instance'],
-          correctAnswer: 1,
+          options: ["this","me","instance","self"],
+          correctAnswer: 3,
           explanation: 'By convention, `self` is passed as the first parameter to instance methods.'
         },
         {
           question: 'Which block executes code regardless of whether an exception occurred or not?',
-          options: ['try', 'except', 'catch', 'finally'],
-          correctAnswer: 3,
+          options: ["try","except","finally","catch"],
+          correctAnswer: 2,
           explanation: 'The `finally` block runs cleanup code regardless of exception status.'
         },
         {
           question: 'Why is `with open("data.txt", "r") as f:` preferred for file handling?',
-          options: ['It runs faster', 'It automatically closes the file when execution exits the block', 'It prevents all syntax errors', 'It encrypts file content'],
-          correctAnswer: 1,
+          options: ["It automatically closes the file when execution exits the block","It runs faster","It prevents all syntax errors","It encrypts file content"],
+          correctAnswer: 0,
           explanation: 'The `with` context manager guarantees file closure even if exceptions occur inside the block.'
         },
         {
           question: 'What OOP pillar allows a child class to acquire properties of a parent class?',
-          options: ['Encapsulation', 'Polymorphism', 'Inheritance', 'Abstraction'],
-          correctAnswer: 2,
+          options: ["Encapsulation","Inheritance","Polymorphism","Abstraction"],
+          correctAnswer: 1,
           explanation: 'Inheritance allows classes to reuse code and behavior from base classes.'
         }
       ]
@@ -446,56 +446,56 @@ console.log("Environment ready!", config);`
         },
         {
           question: 'Why is configuring a proper development environment important?',
-          options: ['It guarantees zero runtime bugs', 'It provides necessary tools, compilers, and dependencies', 'It is optional for modern software', 'It decreases execution speed'],
-          correctAnswer: 1,
+          options: ["It provides necessary tools, compilers, and dependencies","It guarantees zero runtime bugs","It is optional for modern software","It decreases execution speed"],
+          correctAnswer: 0,
           explanation: 'A structured environment ensures all tools and dependencies run consistently.'
         },
         {
           question: 'Which approach ensures project maintainability?',
-          options: ['Writing all code in a single file', 'Following modular architecture and naming conventions', 'Ignoring formatting rules', 'Avoiding comments'],
-          correctAnswer: 1,
+          options: ["Following modular architecture and naming conventions","Writing all code in a single file","Ignoring formatting rules","Avoiding comments"],
+          correctAnswer: 0,
           explanation: 'Modular design makes code readable, extensible, and easier to debug.'
         },
         {
           question: 'What role do software frameworks play in modern development?',
-          options: ['They slow down developers', 'They provide reusable components and standardized patterns', 'They eliminate the need for logic', 'They only handle styling'],
+          options: ["They slow down developers","They provide reusable components and standardized patterns","They eliminate the need for logic","They only handle styling"],
           correctAnswer: 1,
           explanation: 'Frameworks streamline development with tested abstractions and standard workflows.'
         },
         {
           question: 'What is the first step in starting a new technical module?',
-          options: ['Deploying to production', 'Understanding core specifications and requirements', 'Deleting existing files', 'Skipping setup'],
-          correctAnswer: 1,
+          options: ["Deploying to production","Deleting existing files","Skipping setup","Understanding core specifications and requirements"],
+          correctAnswer: 3,
           explanation: 'Understanding specifications ensures proper system design before execution.'
         },
         {
           question: 'What is the role of source control (e.g. Git) when working in ${domain} projects?',
-          options: ['Tracking revision history, collaborating safely, and managing branches', 'Compressing video files', 'Replacing compilers', 'Running unit tests automatically without code'],
-          correctAnswer: 0,
+          options: ["Compressing video files","Replacing compilers","Tracking revision history, collaborating safely, and managing branches","Running unit tests automatically without code"],
+          correctAnswer: 2,
           explanation: 'Version control tracks code evolutions and coordinates team contributions.'
         },
         {
           question: 'Which command line tool compiles or executes code in modern development workflows?',
-          options: ['Domain CLI runner (e.g. node, python, javac)', 'Calculator', 'Graphic viewer', 'Text editor only'],
-          correctAnswer: 0,
+          options: ["Calculator","Domain CLI runner (e.g. node, python, javac)","Graphic viewer","Text editor only"],
+          correctAnswer: 1,
           explanation: 'Runtime CLIs execute scripts and compile project source trees.'
         },
         {
           question: 'What document establishes coding style rules and naming standards in ${domain}?',
-          options: ['Style Guide (e.g. PEP 8, Airbnb Style Guide)', 'Hardware warranty', 'User manual', 'License agreement'],
+          options: ["Style Guide (e.g. PEP 8, Airbnb Style Guide)","Hardware warranty","User manual","License agreement"],
           correctAnswer: 0,
           explanation: 'Style guides standardize formatting to enhance team readability.'
         },
         {
           question: 'Why should environment variables be used for configuration secrets in ${domain}?',
-          options: ['To avoid hardcoding sensitive API keys or credentials directly in source code', 'To make files larger', 'To slow down git commits', 'They are required by HTML'],
-          correctAnswer: 0,
+          options: ["To make files larger","To slow down git commits","To avoid hardcoding sensitive API keys or credentials directly in source code","They are required by HTML"],
+          correctAnswer: 2,
           explanation: 'Environment variables isolate credentials from public repositories.'
         },
         {
           question: 'What is the purpose of package managers in ${domain} ecosystems?',
-          options: ['Automating installation, updating, and dependency resolution of third-party libraries', 'Managing physical shipping packages', 'Writing documentation', 'Compiling OS kernels'],
-          correctAnswer: 0,
+          options: ["Managing physical shipping packages","Writing documentation","Compiling OS kernels","Automating installation, updating, and dependency resolution of third-party libraries"],
+          correctAnswer: 3,
           explanation: 'Package managers (npm, pip, maven) resolve library dependency trees.'
         }
       ]
@@ -533,62 +533,62 @@ console.log(processDataset(sampleData));`
       quiz: [
         {
           question: 'Why is selecting the appropriate data structure critical?',
-          options: ['It impacts performance, memory utilization, and code clarity', 'Data structures do not affect code execution', 'It only changes file size', 'It is enforced by hardware'],
-          correctAnswer: 0,
+          options: ["Data structures do not affect code execution","It impacts performance, memory utilization, and code clarity","It only changes file size","It is enforced by hardware"],
+          correctAnswer: 1,
           explanation: 'Data structures directly dictate time and space complexity in applications.'
         },
         {
           question: 'What does data filtering accomplish in a processing pipeline?',
-          options: ['Sorts data alphabetically', 'Extracts only elements meeting specific criteria', 'Deletes all records', 'Duplicates elements'],
-          correctAnswer: 1,
+          options: ["Sorts data alphabetically","Deletes all records","Extracts only elements meeting specific criteria","Duplicates elements"],
+          correctAnswer: 2,
           explanation: 'Filtering isolates data elements that satisfy specified boolean logic.'
         },
         {
           question: 'What is the benefit of immutable data representations?',
-          options: ['They prevent unintended side effects and state mutations', 'They consume less memory always', 'They make code untestable', 'They disable functions'],
-          correctAnswer: 0,
+          options: ["They consume less memory always","They prevent unintended side effects and state mutations","They make code untestable","They disable functions"],
+          correctAnswer: 1,
           explanation: 'Immutability ensures data state remains consistent across execution flows.'
         },
         {
           question: 'Which evaluation occurs when chaining logic statements?',
-          options: ['Random sequence execution', 'Short-circuit boolean logic evaluation', 'Ignoring errors', 'Infinite looping'],
-          correctAnswer: 1,
+          options: ["Short-circuit boolean logic evaluation","Random sequence execution","Ignoring errors","Infinite looping"],
+          correctAnswer: 0,
           explanation: 'Modern runtime engines evaluate boolean chains with short-circuit optimization.'
         },
         {
           question: 'What is state management responsible for?',
-          options: ['Tracking data modifications throughout application lifecycle', 'Installing OS packages', 'Printing error logs only', 'Closing ports'],
-          correctAnswer: 0,
+          options: ["Installing OS packages","Printing error logs only","Tracking data modifications throughout application lifecycle","Closing ports"],
+          correctAnswer: 2,
           explanation: 'State management tracks dynamic changes to application data.'
         },
         {
           question: 'What is the time complexity of looking up a key in an efficient hash map in ${domain}?',
-          options: ['O(1) average time', 'O(N^2)', 'O(N!)', 'O(log N) worst case guaranteed'],
-          correctAnswer: 0,
+          options: ["O(N^2)","O(N!)","O(log N) worst case guaranteed","O(1) average time"],
+          correctAnswer: 3,
           explanation: 'Hash maps achieve constant O(1) average lookup through hash indexing.'
         },
         {
           question: 'What data structure operates on a Last-In, First-Out (LIFO) basis in ${domain}?',
-          options: ['Stack', 'Queue', 'Array', 'Tree'],
+          options: ["Stack","Queue","Array","Tree"],
           correctAnswer: 0,
           explanation: 'Stacks operate strictly on LIFO order (push/pop at top).'
         },
         {
           question: 'What data structure operates on a First-In, First-Out (FIFO) basis?',
-          options: ['Queue', 'Stack', 'Heap', 'Graph'],
-          correctAnswer: 0,
+          options: ["Stack","Heap","Queue","Graph"],
+          correctAnswer: 2,
           explanation: 'Queues process elements in FIFO sequence (enqueue back, dequeue front).'
         },
         {
           question: 'What algorithm strategy breaks a problem down into smaller overlapping subproblems using memoization?',
-          options: ['Dynamic Programming', 'Brute Force', 'Random Search', 'Linear Scan'],
-          correctAnswer: 0,
+          options: ["Brute Force","Dynamic Programming","Random Search","Linear Scan"],
+          correctAnswer: 1,
           explanation: 'Dynamic programming optimizes recursive problems by caching subproblem solutions.'
         },
         {
           question: 'Why is binary search more efficient than linear search on sorted data?',
-          options: ['It divides the search space in half at each step, running in O(log N) time', 'It scans every item twice', 'It uses random guessing', 'It requires zero memory'],
-          correctAnswer: 0,
+          options: ["It scans every item twice","It uses random guessing","It requires zero memory","It divides the search space in half at each step, running in O(log N) time"],
+          correctAnswer: 3,
           explanation: 'Binary search halves candidates iteratively, achieving logarithmic complexity.'
         }
       ]
@@ -630,61 +630,61 @@ service.fetchData().then(res => console.log(res));`
       quiz: [
         {
           question: 'What is the primary benefit of the Separation of Concerns principle?',
-          options: ['Improves code maintainability and testability', 'Increases code duplication', 'Compiles code faster', 'Removes user interfaces'],
-          correctAnswer: 0,
+          options: ["Increases code duplication","Compiles code faster","Improves code maintainability and testability","Removes user interfaces"],
+          correctAnswer: 2,
           explanation: 'Separating concerns minimizes side effects and makes subsystems independently testable.'
         },
         {
           question: 'What is an API contract?',
-          options: ['A formal agreement specifying endpoints, inputs, and output formats', 'A hardware specification', 'A legal copyright document', 'A CSS theme file'],
+          options: ["A formal agreement specifying endpoints, inputs, and output formats","A hardware specification","A legal copyright document","A CSS theme file"],
           correctAnswer: 0,
           explanation: 'API contracts define how software components communicate with guaranteed inputs/outputs.'
         },
         {
           question: 'Which design pattern is best for ensuring a single instance of a class?',
-          options: ['Factory Pattern', 'Singleton Pattern', 'Observer Pattern', 'Strategy Pattern'],
+          options: ["Factory Pattern","Singleton Pattern","Observer Pattern","Strategy Pattern"],
           correctAnswer: 1,
           explanation: 'The Singleton pattern restricts instantiation of a class to a single object.'
         },
         {
           question: 'What is the advantage of modular design?',
-          options: ['Components can be developed, tested, and updated independently', 'Everything is bound together in one place', 'Eliminates error checking', 'Allows direct memory access'],
-          correctAnswer: 0,
+          options: ["Everything is bound together in one place","Eliminates error checking","Components can be developed, tested, and updated independently","Allows direct memory access"],
+          correctAnswer: 2,
           explanation: 'Modular design supports independent lifecycle management for individual system modules.'
         },
         {
           question: 'Why are async operations used for network calls?',
-          options: ['They prevent the main UI thread from blocking', 'They force CPU overclocking', 'They disable network encryption', 'They bypass server responses'],
+          options: ["They prevent the main UI thread from blocking","They force CPU overclocking","They disable network encryption","They bypass server responses"],
           correctAnswer: 0,
           explanation: 'Asynchronous calls allow the user interface to stay responsive while awaiting network results.'
         },
         {
           question: 'What is the Open/Closed Principle (the O in SOLID design)?',
-          options: ['Software entities should be open for extension, but closed for modification', 'Doors should stay open', 'All code must be open source', 'Classes must have no methods'],
-          correctAnswer: 0,
+          options: ["Doors should stay open","All code must be open source","Classes must have no methods","Software entities should be open for extension, but closed for modification"],
+          correctAnswer: 3,
           explanation: 'The Open/Closed principle advises extending behavior through inheritance/polymorphism without editing verified code.'
         },
         {
           question: 'Which design pattern defines a one-to-many dependency where state changes automatically notify observers?',
-          options: ['Observer Pattern', 'Singleton Pattern', 'Factory Pattern', 'Adapter Pattern'],
-          correctAnswer: 0,
+          options: ["Singleton Pattern","Factory Pattern","Observer Pattern","Adapter Pattern"],
+          correctAnswer: 2,
           explanation: 'The Observer pattern notifies subscribers whenever subject state updates.'
         },
         {
           question: 'What design pattern provides a unified interface to a set of interfaces in a subsystem (simplifying caller interaction)?',
-          options: ['Facade Pattern', 'Decorator Pattern', 'Proxy Pattern', 'Bridge Pattern'],
-          correctAnswer: 0,
+          options: ["Decorator Pattern","Facade Pattern","Proxy Pattern","Bridge Pattern"],
+          correctAnswer: 1,
           explanation: 'Facade masks complex internal subsystems behind a clean, simple high-level interface.'
         },
         {
           question: 'What is Dependency Inversion in modern application architecture?',
-          options: ['High-level modules should depend on abstractions (interfaces), not on concrete low-level details', 'Inverting screen orientation', 'Running code backwards', 'Deleting dependencies'],
-          correctAnswer: 0,
+          options: ["Inverting screen orientation","Running code backwards","Deleting dependencies","High-level modules should depend on abstractions (interfaces), not on concrete low-level details"],
+          correctAnswer: 3,
           explanation: 'Dependency inversion decouples components through abstract interfaces.'
         },
         {
           question: 'What is the role of an API Gateway in distributed architectures?',
-          options: ['Acting as a single entry point that routes, authenticates, and rate-limits requests to downstream services', 'Rendering 3D graphics', 'Managing local printers', 'Writing unit tests'],
+          options: ["Acting as a single entry point that routes, authenticates, and rate-limits requests to downstream services","Rendering 3D graphics","Managing local printers","Writing unit tests"],
           correctAnswer: 0,
           explanation: 'API Gateways consolidate routing, authentication, and cross-cutting concerns.'
         }
@@ -727,62 +727,62 @@ function executeOperation(inputPayload) {
       quiz: [
         {
           question: 'What is the goal of input sanitization and validation?',
-          options: ['To prevent malicious injection and invalid data corruption', 'To format text to uppercase', 'To delete user accounts', 'To speed up rendering'],
-          correctAnswer: 0,
+          options: ["To format text to uppercase","To delete user accounts","To prevent malicious injection and invalid data corruption","To speed up rendering"],
+          correctAnswer: 2,
           explanation: 'Validation ensures incoming payloads conform to safe, expected formats before execution.'
         },
         {
           question: 'How does caching improve application performance?',
-          options: ['By storing computed results in memory to avoid repetitive operations', 'By deleting database records', 'By adding deliberate delays', 'By disabling network protocols'],
-          correctAnswer: 0,
+          options: ["By deleting database records","By adding deliberate delays","By disabling network protocols","By storing computed results in memory to avoid repetitive operations"],
+          correctAnswer: 3,
           explanation: 'Caching reduces latency by serving pre-computed or frequently requested data directly.'
         },
         {
           question: 'What is defensive programming?',
-          options: ['Designing code to anticipate potential errors and invalid states', 'Writing code without testing', 'Preventing other developers from reading code', 'Using antivirus software'],
-          correctAnswer: 0,
+          options: ["Writing code without testing","Preventing other developers from reading code","Using antivirus software","Designing code to anticipate potential errors and invalid states"],
+          correctAnswer: 3,
           explanation: 'Defensive programming anticipates unexpected edge cases to prevent system failures.'
         },
         {
           question: 'Why should error messages shown to users NOT reveal stack traces?',
-          options: ['Stack traces may expose sensitive system details to attackers', 'Stack traces look messy', 'Browsers block stack traces', 'Stack traces alter colors'],
+          options: ["Stack traces may expose sensitive system details to attackers","Stack traces look messy","Browsers block stack traces","Stack traces alter colors"],
           correctAnswer: 0,
           explanation: 'Exposing detailed internal errors provides attackers with blueprint info about system vulnerabilities.'
         },
         {
           question: 'Which practice improves API request security?',
-          options: ['Enforcing HTTPS encryption and authentication tokens', 'Sending passwords in plain text', 'Removing CORS checks', 'Allowing unauthenticated root access'],
-          correctAnswer: 0,
+          options: ["Sending passwords in plain text","Removing CORS checks","Enforcing HTTPS encryption and authentication tokens","Allowing unauthenticated root access"],
+          correctAnswer: 2,
           explanation: 'HTTPS and token authentication guard data integrity and verify caller identity.'
         },
         {
           question: 'What security practice limits system damage by giving users/services only the bare minimum permissions necessary?',
-          options: ['Principle of Least Privilege', 'Defense in Depth', 'Single Sign-On', 'Open Access Model'],
-          correctAnswer: 0,
+          options: ["Defense in Depth","Principle of Least Privilege","Single Sign-On","Open Access Model"],
+          correctAnswer: 1,
           explanation: 'Least privilege minimizes blast radius by restricting access permissions.'
         },
         {
           question: 'What technique mitigates Denial of Service (DoS) by capping the number of requests a client can make in a given timeframe?',
-          options: ['Rate Limiting / Throttling', 'Data Compression', 'SQL Injection', 'Database Indexing'],
+          options: ["Rate Limiting / Throttling","Data Compression","SQL Injection","Database Indexing"],
           correctAnswer: 0,
           explanation: 'Rate limiting prevents service abuse and traffic flooding from abusive clients.'
         },
         {
           question: 'Why should passwords never be stored in plain text or with reversible encryption in databases?',
-          options: ['Database breaches would immediately expose user credentials; passwords must be hashed using salted slow algorithms (bcrypt, argon2)', 'Plain text takes up too much disk space', 'Databases reject plain text strings', 'Passwords must be visible to everyone'],
-          correctAnswer: 0,
+          options: ["Plain text takes up too much disk space","Databases reject plain text strings","Passwords must be visible to everyone","Database breaches would immediately expose user credentials; passwords must be hashed using salted slow algorithms (bcrypt, argon2)"],
+          correctAnswer: 3,
           explanation: 'Salted slow key derivation hashes protect passwords even if database tables are compromised.'
         },
         {
           question: 'What cryptographic hash algorithm family is standardly recommended for digital signatures and data integrity (e.g. SHA-256)?',
-          options: ['SHA-2 / SHA-3', 'MD5 (deprecated)', 'Rot13', 'CRC32'],
-          correctAnswer: 0,
+          options: ["MD5 (deprecated)","SHA-2 / SHA-3","Rot13","CRC32"],
+          correctAnswer: 1,
           explanation: 'SHA-256 provides 256-bit collision resistance for modern integrity verification.'
-          },
+        },
         {
           question: 'What does Cross-Origin Resource Sharing (CORS) enforce in browser web security?',
-          options: ['Prevents unauthorized web pages from making background API requests to a different domain without explicit server permission headers', 'Encrypts hard drives', 'Blocks spam emails', 'Formats JSON responses'],
-          correctAnswer: 0,
+          options: ["Encrypts hard drives","Blocks spam emails","Prevents unauthorized web pages from making background API requests to a different domain without explicit server permission headers","Formats JSON responses"],
+          correctAnswer: 2,
           explanation: 'CORS uses HTTP response headers to control cross-origin resource access in browsers.'
         }
       ]
@@ -832,26 +832,26 @@ console.log(capstone.generateCertificateSummary());`
       quiz: [
         {
           question: 'What does completing the final Capstone Unit signify?',
-          options: ['Successful mastery of all 5 course units and readiness for certificate issuance', 'System reset', 'Course cancellation', 'Starting unit 1 again'],
+          options: ["Successful mastery of all 5 course units and readiness for certificate issuance","System reset","Course cancellation","Starting unit 1 again"],
           correctAnswer: 0,
           explanation: 'Passing Unit 5 completes the 100% course requirement and unlocks your certificate.'
         },
         {
           question: 'What is the purpose of integration testing in a completed project?',
-          options: ['Verifying that individual modules function properly together', 'Testing CSS colors only', 'Formatting code automatically', 'Writing documentation'],
-          correctAnswer: 0,
+          options: ["Testing CSS colors only","Verifying that individual modules function properly together","Formatting code automatically","Writing documentation"],
+          correctAnswer: 1,
           explanation: 'Integration tests verify that separate system modules interact without unexpected bugs.'
         },
         {
           question: 'What is continuous integration/continuous deployment (CI/CD)?',
-          options: ['Automating software building, testing, and deployment workflows', 'Manual code copying', 'Deleting code weekly', 'Designing logos'],
-          correctAnswer: 0,
+          options: ["Manual code copying","Deleting code weekly","Automating software building, testing, and deployment workflows","Designing logos"],
+          correctAnswer: 2,
           explanation: 'CI/CD pipelines automate build and deployment verification upon code updates.'
         },
         {
           question: 'Why is post-deployment monitoring critical?',
-          options: ['To detect runtime anomalies, performance degradation, and log errors', 'To change domain names daily', 'To prevent users from logging in', 'It is not necessary'],
-          correctAnswer: 0,
+          options: ["To change domain names daily","To prevent users from logging in","It is not necessary","To detect runtime anomalies, performance degradation, and log errors"],
+          correctAnswer: 3,
           explanation: 'Monitoring provides real-time visibility into production health and error metrics.'
         },
         {
@@ -862,32 +862,32 @@ console.log(capstone.generateCertificateSummary());`
         },
         {
           question: 'What is the role of Regression Testing before issuing production certificates or releases?',
-          options: ['Ensuring that new code additions or fixes have not broken existing, previously working features', 'Reverting all changes to version 1.0', 'Deleting test cases', 'Measuring CPU clock speed'],
+          options: ["Ensuring that new code additions or fixes have not broken existing, previously working features","Reverting all changes to version 1.0","Deleting test cases","Measuring CPU clock speed"],
           correctAnswer: 0,
           explanation: 'Regression testing verifies system stability across updates.'
         },
         {
           question: 'What metric measures the percentage of code lines executed during automated testing suites?',
-          options: ['Code Coverage', 'Code Complexity', 'Line Density', 'Cyclomatic Index'],
-          correctAnswer: 0,
+          options: ["Code Complexity","Line Density","Cyclomatic Index","Code Coverage"],
+          correctAnswer: 3,
           explanation: 'Code coverage quantifies what proportion of codebase branches are validated by test suites.'
         },
         {
           question: 'What does Blue-Green Deployment achieve during software releases?',
-          options: ['Near-zero downtime releases by switching production router traffic between two identical environments', 'Colorful website themes', 'Deploying on sunny days only', 'Deleting old databases'],
-          correctAnswer: 0,
+          options: ["Colorful website themes","Deploying on sunny days only","Near-zero downtime releases by switching production router traffic between two identical environments","Deleting old databases"],
+          correctAnswer: 2,
           explanation: 'Blue-Green routing allows instantaneous switchover and instant rollback if bugs occur.'
         },
         {
           question: 'What is the purpose of Semantic Versioning (SemVer: MAJOR.MINOR.PATCH)?',
-          options: ['Standardizing version increments: Major for breaking changes, Minor for new features, Patch for bug fixes', 'Random version numbering', 'Numbering database tables', 'Licensing code'],
+          options: ["Standardizing version increments: Major for breaking changes, Minor for new features, Patch for bug fixes","Random version numbering","Numbering database tables","Licensing code"],
           correctAnswer: 0,
           explanation: 'SemVer conveys API stability and backward compatibility guarantees.'
         },
         {
           question: 'Upon passing all 5 units in an EduPortal course with >= 70% assessment scores, what can students view and download?',
-          options: ['Official verifiable Certificate of Completion with trophy badge', 'Source code for the Linux kernel', 'Free server hardware', 'Course cancellation notice'],
-          correctAnswer: 0,
+          options: ["Source code for the Linux kernel","Official verifiable Certificate of Completion with trophy badge","Free server hardware","Course cancellation notice"],
+          correctAnswer: 1,
           explanation: 'Completing all 5 units unlocks the official downloadable certificate of achievement.'
         }
       ]
