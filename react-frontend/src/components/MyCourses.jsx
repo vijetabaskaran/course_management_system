@@ -2,11 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useCourses } from '../context/CourseContext';
-import {
-  getStudentCourseProgress,
-  getStudentCourseUnitProgress,
-  getProgressColor,
-} from '../services/storage';
+import { getProgressColor } from '../services/storage';
 
 /**
  * Confirmation modal for course unenrollment.
@@ -93,15 +89,8 @@ export default function MyCourses({ onBrowse, onStartLearning, onViewCertificate
 
     setUnenrolling(true);
     try {
-      await api.delete(`/api/v1/enrollments/${courseId}`);
-
-      // Update local state
+      await unenrollStudent(user?.email, courseId);
       setEnrollments(prev => prev.filter(e => e.courseId !== courseId && e.id !== courseId));
-
-      // Also sync context state
-      if (unenrollStudent && user?.email) {
-        unenrollStudent(user.email, courseId);
-      }
 
       if (onToast) onToast(`Successfully unenrolled from "${courseTitle}".`);
       setUnenrollTarget(null);
@@ -181,12 +170,10 @@ export default function MyCourses({ onBrowse, onStartLearning, onViewCertificate
               domain: 'General',
             };
 
-            const userEmail = user?.email || item.studentEmail;
-            const prog = getStudentCourseProgress(userEmail, course.id);
-            const unitProg = getStudentCourseUnitProgress(userEmail, course.id);
-            const completedCount = unitProg?.completedUnits?.length || 0;
-            const totalUnits = 5;
-            const statusLabel = item.status || (prog === 100 ? 'completed' : 'active');
+            const prog = typeof item.progressPercentage === 'number' ? item.progressPercentage : 0;
+            const totalUnits = item.totalUnits || course.modules?.length || 1;
+            const completedCount = Math.min(item.completedUnits || 0, totalUnits);
+            const statusLabel = prog === 100 ? 'completed' : prog > 0 ? 'in progress' : 'not started';
             const formattedDate = formatDate(item.enrolledAt || item.createdAt);
 
             return (
@@ -250,7 +237,7 @@ export default function MyCourses({ onBrowse, onStartLearning, onViewCertificate
                         style={{ flex: 1 }}
                         onClick={() => onStartLearning(course)}
                       >
-                        {completedCount === 0 ? 'Start Learning →' : 'Continue →'}
+                        {(completedCount === 0 && prog === 0) ? 'Start Learning →' : 'Continue →'}
                       </button>
                     )}
 
@@ -260,7 +247,7 @@ export default function MyCourses({ onBrowse, onStartLearning, onViewCertificate
                         className="btn-action btn-gold btn-sm"
                         onClick={() => onViewCertificate(course)}
                       >
-                        🏆 Certificate
+                        🏆 View Certificate
                       </button>
                     )}
 

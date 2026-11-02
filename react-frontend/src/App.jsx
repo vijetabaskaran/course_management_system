@@ -46,6 +46,9 @@ function AppRoutes() {
       <Route path="/my-progress" element={
         <PrivateRoute requiredRole="student"><StudentDashboard initialSection="progress"/></PrivateRoute>
       }/>
+      <Route path="/profile" element={
+        <PrivateRoute requiredRole="student"><StudentDashboard initialSection="profile"/></PrivateRoute>
+      }/>
 
       {/* Admin */}
       <Route path="/admin-dashboard" element={

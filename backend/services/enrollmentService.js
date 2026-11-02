@@ -1,25 +1,62 @@
 'use strict';
 /**
  * services/enrollmentService.js  (MongoDB/Mongoose version)
- * Business logic for student course enrollments (Task 12).
- * All model operations are now async/await.
+ *
+ * Business logic for enrollments.
  */
-const enrollmentModel = require('../models/enrollmentModel');
-const courseModel     = require('../models/courseModel');
-const courseService   = require('./courseService');
-const studentModel    = require('../models/studentModel');
-const { newId }       = require('../utils/idGenerator');
+const enrollmentModel       = require('../models/enrollmentModel');
+const courseModel           = require('../models/courseModel');
+const studentModel          = require('../models/studentModel');
+const courseService         = require('./courseService');
+const learningProgressModel = require('../models/learningProgressModel');
 
+/**
+ * All enrollments, each annotated with the student's stored learning progress.
+ */
 async function getAll() {
-  return enrollmentModel.findAll();
+  const [enrollments, allProgress] = await Promise.all([
+    enrollmentModel.findAll(),
+    learningProgressModel.findAll(),
+  ]);
+
+  const progressMap = new Map();
+  allProgress.forEach(p => {
+    progressMap.set(`${(p.studentEmail || '').toLowerCase()}|${p.courseId}`, p);
+  });
+
+  return enrollments.map(e => {
+    const p = progressMap.get(`${(e.studentEmail || '').toLowerCase()}|${e.courseId}`);
+    if (p) {
+      return {
+        ...e,
+        progressPercentage: p.progressPercentage,
+        completedLessons:   p.completedLessons,
+        totalLessons:       p.totalLessons,
+        completedUnits:     p.completedUnits,
+        totalUnits:         p.totalUnits,
+      };
+    }
+    return { ...e, progressPercentage: e.status === 'completed' ? 100 : 0 };
+  });
 }
 
 async function getById(id) {
   return enrollmentModel.findById(id);
 }
 
+async function patch(id, fields) {
+  const existing = await enrollmentModel.findById(id);
+  if (!existing) return null;
+  const { id: _id, studentEmail: _email, studentId: _sid, courseId: _cid, ...safe } = fields || {};
+  return enrollmentModel.patch(id, safe);
+}
+
+async function remove(id) {
+  return enrollmentModel.remove(id);
+}
+
 /**
- * Enroll an authenticated student in a course.
+ * Enroll an authenticated student into a course.
  */
 async function enroll(user, courseId) {
   if (!user || (!user.email && !user.id)) {
@@ -28,14 +65,15 @@ async function enroll(user, courseId) {
     throw err;
   }
 
-  if (!courseId || typeof courseId !== 'string' || !courseId.trim()) {
-    const err = new Error('A valid courseId is required in the request body.');
+  if (!courseId || !String(courseId).trim()) {
+    const err = new Error('courseId is required.');
     err.statusCode = 400;
     throw err;
   }
 
-  const cleanCourseId = courseId.trim();
+  const cleanCourseId = String(courseId).trim();
 
+  // 1. Verify course exists
   const course = await courseModel.findById(cleanCourseId);
   if (!course) {
     const err = new Error(`Course with ID "${cleanCourseId}" does not exist.`);
@@ -43,31 +81,32 @@ async function enroll(user, courseId) {
     throw err;
   }
 
-  const studentEmail = (user.email || '').toLowerCase().trim();
-  const existing = await enrollmentModel.findByStudentAndCourse(studentEmail || user.id, cleanCourseId);
+  // 2. Prevent duplicate enrollment
+  const studentRef = (user.email || user.id || '').toLowerCase().trim();
+  const existing = await enrollmentModel.findByStudentAndCourse(studentRef, cleanCourseId);
   if (existing) {
-    const err = new Error(`You are already enrolled in course "${course.title || course.name}".`);
+    const err = new Error(`Student is already enrolled in course "${cleanCourseId}".`);
     err.statusCode = 409;
     throw err;
   }
 
-  const now = Date.now();
+  // Progress left over from an earlier, since-removed enrollment must not carry over
+  await learningProgressModel.removeByStudentAndCourse(studentRef, cleanCourseId);
+
+  // 3. Create the enrollment
   const enrollment = {
-    id:           newId(),
     studentId:    user.id || '',
-    studentEmail,
+    studentEmail: (user.email || '').toLowerCase().trim(),
     courseId:     cleanCourseId,
     status:       'active',
-    enrolledAt:   now,
-    createdAt:    now,
-    updatedAt:    now,
+    enrolledAt:   Date.now(),
   };
 
   return enrollmentModel.create(enrollment);
 }
 
 /**
- * Retrieve the authenticated student's enrolled courses with populated course details.
+ * Retrieve the authenticated student's enrolled courses with populated course details and progress.
  */
 async function getMyCourses(user) {
   if (!user || (!user.email && !user.id)) {
@@ -79,11 +118,57 @@ async function getMyCourses(user) {
   const studentRef = (user.email || user.id || '').toLowerCase().trim();
   const rawEnrollments = await enrollmentModel.findByStudent(studentRef);
 
+  // Retrieve student progress records from MongoDB
+  const allProgress = await learningProgressModel.findByStudent(studentRef);
+  const progressMap = new Map();
+  allProgress.forEach(p => progressMap.set(p.courseId, p));
+
   const populated = await Promise.all(rawEnrollments.map(async e => {
     const courseDetails = await courseService.getById(e.courseId)
       || await courseModel.findById(e.courseId)
       || null;
-    return { ...e, course: courseDetails };
+
+    const modules = (courseDetails && courseDetails.modules && courseDetails.modules.length > 0)
+      ? courseDetails.modules
+      : [];
+
+    const totalUnits = modules.length > 0 ? modules.length : 1;
+    let defaultTotalLessons = 10;
+    if (modules.length > 0) {
+      const sum = modules.reduce((acc, m) => acc + (m.lessons?.length || 1), 0);
+      if (sum > 0) defaultTotalLessons = sum;
+    }
+
+    const p = progressMap.get(e.courseId);
+
+    let progressPercentage = 0;
+    let completedLessons = 0;
+    let totalLessons = defaultTotalLessons;
+    let completedUnits = 0;
+    let unitsTotal = totalUnits;
+
+    if (p) {
+      progressPercentage = p.progressPercentage || 0;
+      completedLessons = p.completedLessons || 0;
+      totalLessons = p.totalLessons || defaultTotalLessons;
+      completedUnits = p.completedUnits || 0;
+      unitsTotal = p.totalUnits || totalUnits;
+    } else if (e.status === 'completed') {
+      progressPercentage = 100;
+      completedLessons = totalLessons;
+      completedUnits = totalUnits;
+    }
+
+    return {
+      ...e,
+      status: progressPercentage === 100 ? 'completed' : (e.status || 'active'),
+      course: courseDetails,
+      progressPercentage,
+      completedLessons,
+      totalLessons,
+      completedUnits: Math.min(completedUnits, unitsTotal),
+      totalUnits: unitsTotal,
+    };
   }));
 
   populated.sort((a, b) => {
@@ -166,51 +251,7 @@ async function create(body, user) {
     throw err;
   }
 
-  const student = await studentModel.findByEmailRaw(studentEmail);
-  if (!student) {
-    const err = new Error(`Student with email "${studentEmail}" not found.`);
-    err.statusCode = 404;
-    throw err;
-  }
-
-  const course = await courseModel.findById(courseId);
-  if (!course) {
-    const err = new Error(`Course with id "${courseId}" not found.`);
-    err.statusCode = 404;
-    throw err;
-  }
-
-  const existingEnrollment = await enrollmentModel.findByStudentAndCourse(studentEmail, courseId);
-  if (existingEnrollment) {
-    const err = new Error('Student is already enrolled in this course.');
-    err.statusCode = 409;
-    throw err;
-  }
-
-  const now = Date.now();
-  const enrollment = {
-    id:           body.id || newId(),
-    studentId:    student.id || student.legacyId || '',
-    studentEmail: studentEmail.toLowerCase(),
-    courseId,
-    status:       body.status || 'active',
-    enrolledAt:   body.enrolledAt || now,
-    createdAt:    now,
-    updatedAt:    now,
-  };
-
-  return enrollmentModel.create(enrollment);
-}
-
-async function patch(id, fields) {
-  const existing = await enrollmentModel.findById(id);
-  if (!existing) return null;
-  const { id: _id, studentEmail: _email, studentId: _sid, courseId: _cid, ...safe } = fields;
-  return enrollmentModel.patch(id, safe);
-}
-
-async function remove(id) {
-  return enrollmentModel.remove(id);
+  return enroll({ email: studentEmail }, courseId);
 }
 
 module.exports = {

@@ -1,8 +1,9 @@
 import { useEffect } from 'react';
-import { getCourseUnits } from '../data/coursesData';
 import { useCourses } from '../context/CourseContext';
 
 export default function CourseDetailModal({ course, user, onClose, onEnroll }) {
+  const { isEnrolled } = useCourses();
+
   useEffect(() => {
     document.body.style.overflow = 'hidden';
     return () => {
@@ -12,10 +13,16 @@ export default function CourseDetailModal({ course, user, onClose, onEnroll }) {
 
   if (!course) return null;
 
-  const { isEnrolled } = useCourses();
   const enrolled = user ? isEnrolled(user.email, course.id) : false;
-  const units = getCourseUnits(course);
-  const totalQuizzes = units.reduce((acc, u) => acc + (u.quiz ? 1 : 0), 0);
+  const units = Array.isArray(course.modules) && course.modules.length > 0
+    ? course.modules.map((m, idx) => ({
+        id: m.id || `mod-${idx + 1}`,
+        title: m.title || `Module ${idx + 1}`,
+        overview: m.overview || m.description || '',
+        quiz: Array.isArray(m.quiz) && m.quiz.length > 0 ? m.quiz : null,
+      }))
+    : [];
+  const totalQuizzes = units.reduce((acc, u) => acc + (u.quiz?.length ? 1 : 0), 0);
 
   const skillsList = typeof course.skills === 'string'
     ? course.skills.split(',').map(s => s.trim()).filter(Boolean)
@@ -92,7 +99,7 @@ export default function CourseDetailModal({ course, user, onClose, onEnroll }) {
                     <h5 className="unit-preview-title">{unit.title}</h5>
                     <p className="unit-preview-desc">{unit.overview}</p>
                   </div>
-                  <span className="unit-quiz-badge">5-Q Quiz</span>
+                  {unit.quiz?.length > 0 && <span className="unit-quiz-badge">{unit.quiz.length}-Q Quiz</span>}
                 </div>
               ))}
             </div>

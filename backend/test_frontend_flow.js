@@ -110,7 +110,7 @@ async function runFrontendIntegrationTest() {
 
     // 3. Opens "My Learning Progress" -> empty initially
     const initProgress = await apiCall('GET', '/progress/my-progress', token);
-    assert(initProgress.status === 200 && initProgress.json?.totalCourses === 0, 'My-progress starts with 0 records for newly enrolled course');
+    assert(initProgress.status === 200 && initProgress.json?.totalCourses === 1 && initProgress.json?.progress[0]?.progressPercentage === 0, 'My-progress returns 1 course with default 0% progress for newly enrolled course');
 
     // 4. Update progress to 4 / 10 lessons (40%)
     const p1 = await apiCall('PUT', '/progress', token, {

@@ -1,16 +1,18 @@
 'use strict';
 /**
  * controllers/authController.js
- * HTTP layer for Task 9 & Task 10 auth endpoints.
+ * HTTP layer for Task 9 & Task 10 auth endpoints + profile retrieval.
  *
  * Routes (mounted at /api/v1/auth in server.js):
  *   POST /api/v1/auth/register
  *   POST /api/v1/auth/login
+ *   GET  /api/v1/auth/me
  *
  * This controller intentionally keeps business logic in authService.js.
  * SECURITY: Passwords, password hashes, and JWT secrets are NEVER logged or returned.
  */
-const authService = require('../services/authService');
+const authService  = require('../services/authService');
+const studentModel = require('../models/studentModel');
 
 /**
  * POST /api/v1/auth/register
@@ -53,4 +55,36 @@ async function adminLogin(req, res, next) {
   }
 }
 
-module.exports = { register, login, adminLogin };
+/**
+ * GET /api/v1/auth/me
+ * Retrieve the authenticated user's profile from MongoDB.
+ */
+async function getMe(req, res, next) {
+  try {
+    let user = null;
+    if (req.user?.email) {
+      user = await studentModel.findByEmail(req.user.email);
+    }
+    if (!user && req.user?.id) {
+      user = await studentModel.findById(req.user.id);
+    }
+    if (!user) {
+      user = {
+        id: req.user?.id || 'admin',
+        fullname: req.user?.role === 'admin' ? 'Administrator' : 'User',
+        email: req.user?.email || '',
+        username: req.user?.role === 'admin' ? 'admin' : '',
+        role: req.user?.role || 'student',
+        department: req.user?.role === 'admin' ? 'Administration' : '',
+      };
+    }
+    const cleanUser = { ...user };
+    delete cleanUser.password;
+    delete cleanUser.__v;
+    res.json({ success: true, user: cleanUser });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { register, login, adminLogin, getMe };

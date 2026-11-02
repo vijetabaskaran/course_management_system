@@ -1,9 +1,47 @@
 'use strict';
 /**
  * models/schemas/CourseSchema.js
- * Mongoose schema for the courses collection.
+ * Mongoose schema for the courses collection with full course content & quiz support.
  */
 const mongoose = require('mongoose');
+
+const quizQuestionSchema = new mongoose.Schema(
+  {
+    id: { type: String, trim: true },
+    question: { type: String, required: true, trim: true },
+    options: [{ type: String, trim: true }],
+    correctAnswer: { type: Number, required: true, default: 0 },
+    explanation: { type: String, trim: true },
+    marks: { type: Number, default: 1 },
+  },
+  { _id: true }
+);
+
+const lessonSchema = new mongoose.Schema(
+  {
+    id: { type: String, trim: true },
+    title: { type: String, required: true, trim: true },
+    description: { type: String, trim: true },
+    content: { type: String, trim: true },
+    order: { type: Number, default: 1 },
+    duration: { type: String, trim: true },
+  },
+  { _id: true }
+);
+
+const moduleSchema = new mongoose.Schema(
+  {
+    id: { type: String, trim: true },
+    courseId: { type: String, trim: true },
+    title: { type: String, required: true, trim: true },
+    description: { type: String, trim: true },
+    overview: { type: String, trim: true },
+    order: { type: Number, default: 1 },
+    lessons: [lessonSchema],
+    quiz: [quizQuestionSchema],
+  },
+  { _id: true }
+);
 
 const courseSchema = new mongoose.Schema(
   {
@@ -80,6 +118,9 @@ const courseSchema = new mongoose.Schema(
       type:  String,
       trim:  true,
     },
+
+    modules: [moduleSchema],
+    quiz: [quizQuestionSchema],
   },
   {
     timestamps: {
@@ -87,6 +128,7 @@ const courseSchema = new mongoose.Schema(
       updatedAt: 'updatedAt',
     },
     versionKey: false,
+    strict: false,
     toJSON:   { virtuals: true },
     toObject: { virtuals: true },
   }

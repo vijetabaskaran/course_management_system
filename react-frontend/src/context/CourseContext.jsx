@@ -3,10 +3,11 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from "react";
 import api from "../services/api";
-import { setProgress, getProgress, saveProgress } from "../services/storage";
+import { getProgress, saveProgress, clearStudentCourseProgress } from "../services/storage";
 
 const CourseContext = createContext(null);
 
@@ -38,11 +39,14 @@ export function CourseProvider({ children }) {
   const [enrollments, setEnrollments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const hasLoadedRef = useRef(false);
 
-  // ── Load everything from json-server ─────────────────────────
+  // ── Load everything from the backend ─────────────────────────
+  // Only the first load toggles `loading`: dashboards render nothing while
+  // loading, so a refresh must not unmount views the user is working in.
   const fetchAll = useCallback(async () => {
     try {
-      setLoading(true);
+      if (!hasLoadedRef.current) setLoading(true);
       const [courseRes, studentRes, enrollmentRes] = await Promise.all([
         api.get("/courses"),
         api.get("/students"),
@@ -52,6 +56,7 @@ export function CourseProvider({ children }) {
       setStudents(studentRes.data);
       setEnrollments(enrollmentRes.data);
       setError(null);
+      hasLoadedRef.current = true;
     } catch (err) {
       console.error("Failed to load data:", err);
       setError("Unable to load data. Is the backend running? (cd backend && npm start)");
@@ -168,13 +173,14 @@ export function CourseProvider({ children }) {
   async function enrollStudent(studentEmail, courseId) {
     const response = await api.post("/api/v1/enrollments", { courseId });
     const newEnroll = response.data?.enrollment || response.data;
-    if (studentEmail) setProgress(studentEmail, courseId, 0);
-    setEnrollments((prev) => [...prev, newEnroll]);
+    if (studentEmail) clearStudentCourseProgress(studentEmail, courseId);
+    setEnrollments((prev) => [...prev, { ...newEnroll, progressPercentage: 0, completedUnits: 0 }]);
     return response.data;
   }
 
   async function unenrollStudent(studentEmail, courseId) {
     const response = await api.delete(`/api/v1/enrollments/${courseId}`);
+    if (studentEmail) clearStudentCourseProgress(studentEmail, courseId);
     setEnrollments((prev) => prev.filter(e => {
       const matchEmail = studentEmail && e.studentEmail && e.studentEmail.toLowerCase().trim() === studentEmail.toLowerCase().trim();
       const matchCourse = e.courseId === courseId;

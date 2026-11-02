@@ -4,14 +4,7 @@ import { downloadCertificatePDF } from '../utils/pdfGenerator';
 export default function CertificateModal({ course, user, onClose }) {
   if (!course || !user) return null;
 
-  const certData = getCertificateData(user.email, course.id) || {
-    studentName: user.fullname,
-    courseTitle: course.title || course.name,
-    domain: course.domain || course.category || 'General',
-    instructor: course.instructor || 'Dr. Sarah Jenkins',
-    completionDate: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
-    certificateId: `EP-${(course.domain || 'EP').slice(0, 2).toUpperCase()}-849102`
-  };
+  const certData = getCertificateData(user, course);
 
   const handleDownload = () => {
     downloadCertificatePDF(certData);
@@ -37,7 +30,7 @@ export default function CertificateModal({ course, user, onClose }) {
                 <div className="cert-sub-statement">This is to certify that</div>
                 <div className="cert-student-name">{certData.studentName}</div>
                 <div className="cert-completion-text">
-                  has successfully completed all 5 units, assessments, and required coursework in
+                  has successfully completed all required modules, assessments, and coursework in
                 </div>
                 <div className="cert-course-name">{certData.courseTitle}</div>
                 <div className="cert-domain-badge">Domain: {certData.domain}</div>
@@ -58,9 +51,8 @@ export default function CertificateModal({ course, user, onClose }) {
                     <div className="cert-sig-line">{certData.instructor}</div>
                     <span className="cert-sig-role">Lead Course Instructor</span>
                   </div>
-                  <div className="cert-seal">
-                    <span className="seal-text">VERIFIED</span>
-                    <span className="seal-sub">EduPortal</span>
+                  <div className="cert-seal" aria-label="Achievement Trophy" title="Certificate Trophy">
+                    🏆
                   </div>
                   <div className="cert-sig-block">
                     <div className="cert-sig-line">Dr. Sarah Jenkins</div>

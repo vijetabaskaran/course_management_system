@@ -20,10 +20,14 @@ function normalizeProgress(doc) {
   obj.id   = id;
   obj._id  = id;
 
-  obj.student      = obj.studentEmail || obj.studentId || '';
-  obj.course       = obj.courseId     || '';
+  obj.student            = obj.studentEmail || obj.studentId || '';
+  obj.course             = obj.courseId     || '';
   obj.completedLessons   = typeof obj.completedLessons === 'number' ? obj.completedLessons : 0;
   obj.totalLessons       = typeof obj.totalLessons === 'number' && obj.totalLessons > 0 ? obj.totalLessons : 1;
+  obj.completedUnits     = typeof obj.completedUnits === 'number' ? obj.completedUnits : 0;
+  obj.totalUnits         = typeof obj.totalUnits === 'number' && obj.totalUnits > 0 ? obj.totalUnits : 1;
+  obj.completedUnitIds   = Array.isArray(obj.completedUnitIds) ? obj.completedUnitIds : [];
+  obj.completedLessonIds = Array.isArray(obj.completedLessonIds) ? obj.completedLessonIds : [];
   obj.progressPercentage = typeof obj.progressPercentage === 'number' ? obj.progressPercentage : 0;
   obj.lastAccessedAt     = obj.lastAccessedAt || Date.now();
   return obj;
@@ -112,14 +116,30 @@ function validateProgressData({ completedLessons, totalLessons }) {
   }
 }
 
+/** 100% only when every lesson is done, so rounding can never auto-complete a course. */
+function calculatePercentage(completedLessons, totalLessons) {
+  if (completedLessons >= totalLessons) return 100;
+  return Math.min(99, Math.round((completedLessons / totalLessons) * 100));
+}
+
 /**
  * Upsert learning progress for (student, course).
  * Enforces compound uniqueness — updates existing record or creates a new one.
  */
-async function upsert({ studentId, studentEmail, courseId, completedLessons, totalLessons }) {
+async function upsert({
+  studentId,
+  studentEmail,
+  courseId,
+  completedLessons,
+  totalLessons,
+  completedUnits,
+  totalUnits,
+  completedUnitIds,
+  completedLessonIds,
+}) {
   validateProgressData({ completedLessons, totalLessons });
 
-  const progressPercentage = Math.round((completedLessons / totalLessons) * 100);
+  const progressPercentage = calculatePercentage(completedLessons, totalLessons);
   const now = Date.now();
   const cleanCourseId  = String(courseId).trim();
   const cleanEmail     = (studentEmail || '').toLowerCase().trim();
@@ -130,6 +150,19 @@ async function upsert({ studentId, studentEmail, courseId, completedLessons, tot
     courseId: cleanCourseId,
   };
 
+  // Build update payload
+  const updatePayload = {
+    completedLessons,
+    totalLessons,
+    progressPercentage,
+    lastAccessedAt: now,
+  };
+
+  if (typeof completedUnits === 'number') updatePayload.completedUnits = completedUnits;
+  if (typeof totalUnits === 'number') updatePayload.totalUnits = totalUnits;
+  if (Array.isArray(completedUnitIds)) updatePayload.completedUnitIds = completedUnitIds;
+  if (Array.isArray(completedLessonIds)) updatePayload.completedLessonIds = completedLessonIds;
+
   // Try to find existing record
   let existing = await LearningProgress.findOne(filter).lean();
 
@@ -137,14 +170,7 @@ async function upsert({ studentId, studentEmail, courseId, completedLessons, tot
     // Update existing record
     const updated = await LearningProgress.findByIdAndUpdate(
       existing._id,
-      {
-        $set: {
-          completedLessons,
-          totalLessons,
-          progressPercentage,
-          lastAccessedAt: now,
-        },
-      },
+      { $set: updatePayload },
       { returnDocument: 'after' }
     ).lean();
     return normalizeProgress(updated);
@@ -157,10 +183,7 @@ async function upsert({ studentId, studentEmail, courseId, completedLessons, tot
     studentId:          cleanStudentId,
     studentEmail:       cleanEmail,
     courseId:           cleanCourseId,
-    completedLessons,
-    totalLessons,
-    progressPercentage,
-    lastAccessedAt:     now,
+    ...updatePayload,
   });
 
   const saved = await record.save();
@@ -199,6 +222,7 @@ module.exports = {
   findByStudent,
   findByStudentAndCourse,
   validateProgressData,
+  calculatePercentage,
   upsert,
   remove,
   removeByCourse,

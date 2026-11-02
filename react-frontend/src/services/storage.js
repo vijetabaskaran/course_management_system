@@ -377,7 +377,13 @@ export function getStudentCourseUnitProgress(studentEmail, courseId) {
   };
 }
 
-export function completeUnitAndQuiz(studentEmail, courseId, unitId, score) {
+function resolveTotalUnits(courseId, totalUnits) {
+  if (Number.isInteger(totalUnits) && totalUnits > 0) return totalUnits;
+  const course = getCourseById(courseId);
+  return (course && course.modules && course.modules.length > 0) ? course.modules.length : 1;
+}
+
+export function completeUnitAndQuiz(studentEmail, courseId, unitId, score, totalUnits) {
   const records = getUnitProgressRecords();
   const key = `${studentEmail}_${courseId}`;
   const current = records[key] || { completedUnits: [], quizScores: {}, completedAt: null, certificateId: null };
@@ -386,8 +392,8 @@ export function completeUnitAndQuiz(studentEmail, courseId, unitId, score) {
   const updatedCompletedUnits = Array.from(new Set([...current.completedUnits, numUnitId])).sort((a,b) => a - b);
   const updatedQuizScores = { ...current.quizScores, [numUnitId]: score };
 
-  const totalUnits = 5;
-  const percent = Math.min(100, Math.round((updatedCompletedUnits.length / totalUnits) * 100));
+  const unitsTotal = resolveTotalUnits(courseId, totalUnits ?? current.totalUnits);
+  const percent = Math.min(100, Math.round((updatedCompletedUnits.length / unitsTotal) * 100));
 
   let completedAt = current.completedAt;
   let certificateId = current.certificateId;
@@ -403,6 +409,7 @@ export function completeUnitAndQuiz(studentEmail, courseId, unitId, score) {
   records[key] = {
     ...current,
     completedUnits: updatedCompletedUnits,
+    totalUnits: unitsTotal,
     quizScores: updatedQuizScores,
     completedAt,
     certificateId
@@ -414,10 +421,18 @@ export function completeUnitAndQuiz(studentEmail, courseId, unitId, score) {
   return { percent, completedUnits: updatedCompletedUnits, certificateId, completedAt };
 }
 
+export function clearStudentCourseProgress(studentEmail, courseId) {
+  const records = getUnitProgressRecords();
+  delete records[`${studentEmail}_${courseId}`];
+  saveUnitProgressRecords(records);
+  saveProgress(getProgress().filter(p => !(p.studentEmail === studentEmail && p.courseId === courseId)));
+}
+
 export function getStudentCourseProgress(studentEmail, courseId) {
   const unitProg = getStudentCourseUnitProgress(studentEmail, courseId);
-  if (unitProg && Array.isArray(unitProg.completedUnits)) {
-    return Math.min(100, Math.round((unitProg.completedUnits.length / 5) * 100));
+  if (unitProg && Array.isArray(unitProg.completedUnits) && unitProg.completedUnits.length > 0) {
+    const totalUnits = resolveTotalUnits(courseId, unitProg.totalUnits);
+    return Math.min(100, Math.round((unitProg.completedUnits.length / totalUnits) * 100));
   }
   const record = getProgress().find(p => p.studentEmail === studentEmail && p.courseId === courseId);
   return record ? record.percent : 0;
@@ -437,21 +452,28 @@ export function getCourseAverageProgress(courseId) {
   return Math.round(total / enrollments.length);
 }
 
-export function getCertificateData(studentEmail, courseId) {
-  const student = findStudentByEmail(studentEmail);
-  const course = getCourseById(courseId);
-  const unitProg = getStudentCourseUnitProgress(studentEmail, courseId);
-  const progress = getStudentCourseProgress(studentEmail, courseId);
+/**
+ * Certificate details for a completed course. Completion itself is verified by
+ * the caller against backend progress; this only supplies display data.
+ */
+export function getCertificateData(user, course) {
+  if (!user || !course) return null;
+  const unitProg = getStudentCourseUnitProgress(user.email, course.id);
+  const domain = course.domain || course.category || 'General';
 
-  if (!course || progress < 100) return null;
+  // Stable per student+course so the ID never changes between views
+  const seed = `${(user.email || '').toLowerCase()}|${course.id}`;
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) hash = ((hash << 5) - hash + seed.charCodeAt(i)) | 0;
+  const stableCode = String(100000 + (Math.abs(hash) % 900000));
 
   return {
-    studentName: student?.fullname || 'Student',
+    studentName: user.fullname || findStudentByEmail(user.email || '')?.fullname || 'Student',
     courseTitle: course.title || course.name,
-    domain: course.domain || course.category || 'General',
+    domain,
     instructor: course.instructor || 'Dr. Sarah Jenkins',
     completionDate: unitProg.completedAt || new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
-    certificateId: unitProg.certificateId || `EP-${(course.domain || 'EP').slice(0, 2).toUpperCase()}-984210`,
+    certificateId: unitProg.certificateId || `EP-${domain.slice(0, 2).toUpperCase()}-${stableCode}`,
   };
 }
 
@@ -510,14 +532,26 @@ export function formatCurrentDate() {
 }
 
 export function formatTimeAgo(timestamp) {
-  const diff = Date.now() - timestamp;
+  if (!timestamp) return 'Date unavailable';
+  const timeMs = typeof timestamp === 'number' ? timestamp : new Date(String(timestamp)).getTime();
+  if (isNaN(timeMs)) return 'Date unavailable';
+  const diff = Math.max(0, Date.now() - timeMs);
   const mins = Math.floor(diff / 60000);
   const hours = Math.floor(diff / 3600000);
   const days = Math.floor(diff / 86400000);
   if (mins < 1) return 'Just now';
-  if (mins < 60) return `${mins}m ago`;
-  if (hours < 24) return `${hours}h ago`;
-  return `${days}d ago`;
+  if (mins === 1) return '1 minute ago';
+  if (mins < 60) return `${mins} minutes ago`;
+  if (hours === 1) return '1 hour ago';
+  if (hours < 24) return `${hours} hours ago`;
+  if (days === 1) return '1 day ago';
+  if (days < 30) return `${days} days ago`;
+  const months = Math.floor(days / 30);
+  if (months === 1) return '1 month ago';
+  if (months < 12) return `${months} months ago`;
+  const years = Math.floor(days / 365);
+  if (years === 1) return '1 year ago';
+  return `${years} years ago`;
 }
 
 export function getGreeting(name) {

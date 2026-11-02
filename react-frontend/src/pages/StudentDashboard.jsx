@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCourses } from '../context/CourseContext';
@@ -12,13 +12,17 @@ import CertificateModal from '../components/CertificateModal';
 import MyCourses from '../components/MyCourses';
 import MyLearningProgress from '../components/MyLearningProgress';
 import {
-  getStudentCourseProgress,
-  getStudentCourseUnitProgress,
   getInitials, generateStudentId, formatCurrentDate,
-  getGreeting, getProgressColor, getProgressLabel,
+  getGreeting, getProgressColor,
 } from '../services/storage';
-import { getCourseUnits } from '../data/coursesData';
 import '../styles/dashboard.css';
+
+const enrollmentProgress = (e) => (typeof e.progressPercentage === 'number' ? e.progressPercentage : 0);
+
+function courseUnitCount(course, enrollment) {
+  if (course?.modules?.length) return course.modules.length;
+  return enrollment?.totalUnits || 1;
+}
 
 const STUDENT_SECTIONS = [
   {
@@ -45,9 +49,11 @@ const STUDENT_SECTIONS = [
 
 /* ── Overview Section ────────────────────────────── */
 function OverviewSection({ user, allCourses, enrollments, onBrowse, onStartLearning, onViewCertificate }) {
-  const recentEnrolled = enrollments.slice().sort((a, b) => b.enrolledAt - a.enrolledAt).slice(0, 5);
-  const progValues = enrollments.map(e => getStudentCourseProgress(user.email, e.courseId));
+  const getTime = (d) => (d ? new Date(d).getTime() : 0);
+  const recentEnrolled = enrollments.slice().sort((a, b) => getTime(b.enrolledAt) - getTime(a.enrolledAt)).slice(0, 5);
+  const progValues = enrollments.map(enrollmentProgress);
   const overall = progValues.length ? Math.round(progValues.reduce((s, p) => s + p, 0) / progValues.length) : 0;
+  const completedCourses = progValues.filter(p => p === 100).length;
 
   return (
     <>
@@ -64,7 +70,7 @@ function OverviewSection({ user, allCourses, enrollments, onBrowse, onStartLearn
           icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>}
           number={enrollments.length}
           label="ENROLLED COURSES"
-          badge="Active"
+          badge={`${completedCourses} Completed`}
         />
         <StatCard
           icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>}
@@ -92,7 +98,9 @@ function OverviewSection({ user, allCourses, enrollments, onBrowse, onStartLearn
           <div className="widget-header">
             <h3 className="card-title">Recently Enrolled</h3>
             {enrollments.length > 0 && (
-              <span className="widget-badge">{enrollments.length} Active</span>
+              <span className="widget-badge">
+                {enrollments.length - completedCourses} Active{completedCourses > 0 ? ` · ${completedCourses} Completed` : ''}
+              </span>
             )}
           </div>
 
@@ -110,17 +118,18 @@ function OverviewSection({ user, allCourses, enrollments, onBrowse, onStartLearn
               {recentEnrolled.map(e => {
                 const course = allCourses.find(c => c.id === e.courseId);
                 if (!course) return null;
-                const prog = getStudentCourseProgress(user.email, course.id);
-                const unitProg = getStudentCourseUnitProgress(user.email, course.id);
-                const completedCount = unitProg.completedUnits?.length || 0;
-                const totalUnits = 5;
+                const prog = enrollmentProgress(e);
+                const totalUnits = courseUnitCount(course, e);
+                const completedCount = Math.min(e.completedUnits || 0, totalUnits);
 
                 return (
                   <div key={e.id} className="dashboard-course-item">
                     <div className="course-color" style={{ background: course.color || 'var(--taupe)' }}/>
                     <div className="course-info">
                       <span className="course-name">{course.title || course.name}</span>
-                      <span className="course-code-domain">{course.domain || course.category} · Unit {Math.min(completedCount + 1, totalUnits)} of {totalUnits}</span>
+                      <span className="course-code-domain">
+                        {course.domain || course.category} · {prog === 100 ? `All ${totalUnits} units completed` : `Unit ${Math.min(completedCount + 1, totalUnits)} of ${totalUnits}`}
+                      </span>
                     </div>
                     <div className="course-item-right">
                       <span className="progress-badge" style={{ background: `${getProgressColor(prog)}20`, color: getProgressColor(prog) }}>
@@ -128,7 +137,7 @@ function OverviewSection({ user, allCourses, enrollments, onBrowse, onStartLearn
                       </span>
                       {prog === 100 ? (
                         <button className="btn-sm btn-gold" onClick={() => onViewCertificate(course)}>
-                          🏆 Cert
+                          🏆
                         </button>
                       ) : (
                         <button className="btn-sm btn-action" onClick={() => onStartLearning(course)}>
@@ -174,9 +183,9 @@ function OverviewSection({ user, allCourses, enrollments, onBrowse, onStartLearn
                 {enrollments.map(e => {
                   const course = allCourses.find(c => c.id === e.courseId);
                   if (!course) return null;
-                  const prog = getStudentCourseProgress(user.email, course.id);
-                  const unitProg = getStudentCourseUnitProgress(user.email, course.id);
-                  const completedCount = unitProg.completedUnits?.length || 0;
+                  const prog = enrollmentProgress(e);
+                  const totalUnits = courseUnitCount(course, e);
+                  const completedCount = prog === 100 ? totalUnits : Math.min(e.completedUnits || 0, totalUnits);
 
                   return (
                     <div key={e.id} className="progress-course-item">
@@ -184,7 +193,7 @@ function OverviewSection({ user, allCourses, enrollments, onBrowse, onStartLearn
                         <span className="progress-dot" style={{ background: getProgressColor(prog) }}/>
                         <div className="progress-title-meta">
                           <span className="progress-course-title">{course.title || course.name}</span>
-                          <span className="progress-unit-indicator">{completedCount}/5 Units Completed</span>
+                          <span className="progress-unit-indicator">{completedCount}/{totalUnits} Units Completed</span>
                         </div>
                       </div>
                       <div className="progress-course-bar-wrap">
@@ -219,10 +228,12 @@ function BrowseSection({ user, allCourses, enrollments, onEnrolled, onStartLearn
     }
     if (!search) return true;
     const q = search.toLowerCase();
-    return (c.title || c.name || '').toLowerCase().includes(q) ||
+    return (
+      (c.title || c.name || '').toLowerCase().includes(q) ||
       (c.code || '').toLowerCase().includes(q) ||
       (c.domain || c.category || '').toLowerCase().includes(q) ||
-      (c.instructor || '').toLowerCase().includes(q);
+      (c.instructor || '').toLowerCase().includes(q)
+    );
   });
 
   const handleEnroll = async (courseId) => {
@@ -294,7 +305,7 @@ function BrowseSection({ user, allCourses, enrollments, onEnrolled, onStartLearn
           {courses.map(course => {
             const enrolled = isEnrolled(user.email, course.id);
             const count = enrollments.filter(e => e.courseId === course.id).length;
-            const units = getCourseUnits(course);
+            const unitCount = course.modules?.length || 0;
 
             return (
               <div key={course.id} className="course-card browse-course-card">
@@ -308,7 +319,7 @@ function BrowseSection({ user, allCourses, enrollments, onEnrolled, onStartLearn
                   {course.description && <p className="course-description-text">{course.description}</p>}
                   
                   <div className="browse-course-meta">
-                    <span className="meta-tag">📚 {units.length} Units</span>
+                    <span className="meta-tag">📚 {unitCount} Units</span>
                     <span className="meta-tag">⏱ {course.duration || '12 Weeks'}</span>
                     <span className="meta-tag">👥 {count} Enrolled</span>
                   </div>
@@ -337,95 +348,11 @@ function BrowseSection({ user, allCourses, enrollments, onEnrolled, onStartLearn
   );
 }
 
-/* ── My Courses Section ──────────────────────────── */
-function MyCoursesSection({ user, allCourses, enrollments, onStartLearning, onViewCertificate }) {
-  const myEnrollments = enrollments
-    .filter(e => e.studentEmail === user.email)
-    .slice().sort((a, b) => b.enrolledAt - a.enrolledAt);
-
-  return (
-    <>
-      <div className="section-header">
-        <div>
-          <h2 className="section-title">My Courses</h2>
-          <p className="section-subtitle">Track your learning progress, complete units, and access completion certificates.</p>
-        </div>
-      </div>
-
-      {myEnrollments.length === 0 ? (
-        <div className="empty-state">
-          <h3>No enrolled courses</h3>
-          <p>Browse courses by domain and enroll to start your learning journey.</p>
-        </div>
-      ) : (
-        <div className="courses-grid">
-          {myEnrollments.map(e => {
-            const course = allCourses.find(c => c.id === e.courseId);
-            if (!course) return null;
-            const prog = getStudentCourseProgress(user.email, course.id);
-            const unitProg = getStudentCourseUnitProgress(user.email, course.id);
-            const completedCount = unitProg.completedUnits?.length || 0;
-            const totalUnits = 5;
-            const units = getCourseUnits(course);
-            const currentUnitIndex = Math.min(completedCount, totalUnits - 1);
-            const currentUnitTitle = units[currentUnitIndex]?.title || `Unit ${currentUnitIndex + 1}`;
-
-            return (
-              <div key={e.id} className="course-card my-course-card">
-                <div className="course-card-banner" style={{ background: course.color || 'var(--taupe)' }}>
-                  <span className="course-card-domain-badge">{course.domain || course.category}</span>
-                  {prog === 100 && <span className="course-completed-ribbon">🏆 Completed</span>}
-                </div>
-                <div className="course-card-body">
-                  <span className="course-card-code">{course.code || course.id}</span>
-                  <h4 className="course-card-name">{course.title || course.name}</h4>
-                  {course.instructor && <p className="course-card-instructor">Instructor: {course.instructor}</p>}
-
-                  {/* Progress Indicator */}
-                  <div className="my-course-units-meta">
-                    <span className="units-count-text">
-                      <strong>{completedCount} / {totalUnits}</strong> Units Completed
-                    </span>
-                    <span className="current-unit-tag">
-                      {prog === 100 ? 'Course 100% Completed' : `Current: Unit ${currentUnitIndex + 1}`}
-                    </span>
-                  </div>
-
-                  <div className="course-card-progress">
-                    <div className="cprogress-bar" style={{ flex: 1, height: 8 }}>
-                      <div className="cprogress-fill" style={{ width: `${prog}%`, background: getProgressColor(prog) }}/>
-                    </div>
-                    <span className="progress-pct-label">{prog}%</span>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="course-card-footer my-course-footer">
-                    {prog === 100 ? (
-                      <div className="completed-actions-row">
-                        <button className="btn-action btn-gold btn-sm" onClick={() => onViewCertificate(course)}>
-                          🏆 View &amp; Download Certificate
-                        </button>
-                      </div>
-                    ) : (
-                      <button className="btn-action btn-block" onClick={() => onStartLearning(course)}>
-                        {completedCount === 0 ? 'Start Learning →' : 'Continue Learning →'}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </>
-  );
-}
-
 /* ── Profile Section ─────────────────────────────── */
 function ProfileSection({ user, enrollments }) {
-  const myEnrollments = enrollments.filter(e => e.studentEmail === user.email);
-  const progValues = myEnrollments.map(e => getStudentCourseProgress(user.email, e.courseId));
+  const myEnrollments = enrollments;
+  const progValues = myEnrollments.map(enrollmentProgress);
+  const completedCount = progValues.filter(p => p === 100).length;
   const overall = progValues.length ? Math.round(progValues.reduce((s, p) => s + p, 0) / progValues.length) : 0;
   const initials = getInitials(user.fullname);
   const studentId = generateStudentId(user.username);
@@ -451,6 +378,7 @@ function ProfileSection({ user, enrollments }) {
           { label: 'Department', value: user.department || 'Not specified', id: 'profile-department' },
           { label: 'Email', value: user.email, id: 'profile-email-detail' },
           { label: 'Enrolled Courses', value: myEnrollments.length, id: 'profile-enrolled-count' },
+          { label: 'Completed Courses', value: completedCount, id: 'profile-completed-count' },
           { label: 'Member Since', value: joined, id: 'profile-joined' },
           { label: 'Overall Progress', value: `${overall}%`, id: 'profile-progress' },
         ].map(({ label, value, id }) => (
@@ -472,6 +400,7 @@ export default function StudentDashboard({ initialSection = 'overview' }) {
     enrollments,
     loading: dataLoading,
     enrollStudent,
+    fetchAll,
   } = useCourses();
 
   const [activeSection, setActiveSection] = useState(initialSection);
@@ -482,6 +411,10 @@ export default function StudentDashboard({ initialSection = 'overview' }) {
 
   const showToast = useCallback((msg) => setToastMsg(msg), []);
   const clearToast = useCallback(() => setToastMsg(''), []);
+
+  useEffect(() => {
+    if (fetchAll) fetchAll();
+  }, [fetchAll, activeSection]);
 
   const handleStartLearning = (course) => {
     setSelectedCourseForLearning(course);
@@ -520,19 +453,31 @@ export default function StudentDashboard({ initialSection = 'overview' }) {
   // Render course learning view if section is 'learn'
   if (activeSection === 'learn' && selectedCourseForLearning) {
     return (
-      <CourseLearningView
-        course={selectedCourseForLearning}
-        user={user}
-        onBack={() => {
-          setSelectedCourseForLearning(null);
-          setActiveSection('courses');
-        }}
-        onCompleteCourse={(c) => {
-          showToast(`🎉 Congratulations! You completed "${c.title || c.name}"!`);
-          setCertModalCourse(c);
-        }}
-        onViewCertificate={(c) => setCertModalCourse(c)}
-      />
+      <>
+        <CourseLearningView
+          course={selectedCourseForLearning}
+          user={user}
+          onBack={() => {
+            setSelectedCourseForLearning(null);
+            setActiveSection('courses');
+          }}
+          onCompleteCourse={(c) => {
+            showToast(`🎉 Congratulations! You completed "${c.title || c.name}"!`);
+            setCertModalCourse(c);
+          }}
+          onProgressUpdated={() => {
+            if (fetchAll) fetchAll();
+          }}
+          onViewCertificate={(c) => setCertModalCourse(c)}
+        />
+        {certModalCourse && (
+          <CertificateModal
+            course={certModalCourse}
+            user={user}
+            onClose={() => setCertModalCourse(null)}
+          />
+        )}
+      </>
     );
   }
 
@@ -586,7 +531,7 @@ export default function StudentDashboard({ initialSection = 'overview' }) {
           />
         );
       case 'profile':  
-        return <ProfileSection key={activeSection} user={user} enrollments={enrollments}/>;
+        return <ProfileSection key={activeSection} user={user} enrollments={myEnrollments}/>;
       default:         
         return null;
     }
@@ -610,7 +555,7 @@ export default function StudentDashboard({ initialSection = 'overview' }) {
             <span className="breadcrumb">{breadcrumbLabels[activeSection]}</span>
           </div>
           <div className="topbar-right">
-            <div className="user-avatar" title={user.fullname}>{getInitials(user.fullname)}</div>
+            <div className="user-avatar" title={`${user.fullname} (Click to view Profile)`} style={{ cursor: 'pointer' }} onClick={() => setActiveSection('profile')}>{getInitials(user.fullname)}</div>
           </div>
         </header>
 

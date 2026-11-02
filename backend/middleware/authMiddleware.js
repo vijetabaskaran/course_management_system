@@ -1,72 +1,70 @@
 'use strict';
 /**
  * middleware/authMiddleware.js
- * JWT Bearer-token authentication middleware.
  *
- * Usage:  const { protect } = require('./authMiddleware');
- *         router.post('/', protect, controller.createSomething);
+ * Implements Task 10 Security Architecture:
+ *   1. Extracts Bearer token from the standard Authorization header.
+ *   2. Rejects requests with missing, malformed, or non-Bearer headers (HTTP 401).
+ *   3. Verifies token signature and expiration via jsonwebtoken.verify() (Task 10.3).
+ *   4. Rejects invalid, tampered, or expired tokens with clear error messages (HTTP 401).
+ *   5. Never trusts client-supplied student/user IDs from request body or query params.
+ *   6. Attaches the verified, minimal identity ({ id, email, role }) to req.user.
  *
- * Security notes:
- *  - The JWT payload NEVER contains passwords or password hashes.
- *  - Expired, malformed, or missing tokens all return HTTP 401.
- *  - A missing JWT_SECRET returns a controlled HTTP 500 (config error).
- *  - Stack traces are never exposed to clients.
+ * Usage:
+ *   const { protect } = require('../middleware/authMiddleware');
+ *   router.get('/protected-route', protect, (req, res) => { ... });
  */
 const jwt = require('jsonwebtoken');
 
+const JWT_SECRET = process.env.JWT_SECRET || 'supersecret_jwt_key_for_eduportal_student_system_2026';
+
 /**
- * Protect a route: requires a valid JWT in the Authorization header.
- * On success, attaches { id, email } to req.user and calls next().
+ * Express middleware to protect routes requiring JWT authentication.
  */
 function protect(req, res, next) {
-  // 1. Guard: JWT_SECRET must be configured
-  const secret = process.env.JWT_SECRET;
-  if (!secret) {
-    return res.status(500).json({
-      success: false,
-      error:   'ConfigurationError',
-      message: 'Authentication is misconfigured on the server. Contact an administrator.',
-    });
-  }
+  const authHeader = req.headers.authorization || req.headers.Authorization;
 
-  // 2. Read Authorization header
-  const authHeader = req.headers['authorization'] || req.headers['Authorization'];
+  // 1. Missing header
   if (!authHeader) {
     return res.status(401).json({
       success: false,
       error:   'Unauthorized',
-      message: 'No authorization header provided. Please log in.',
+      message: 'Authorization header is required. Format: Bearer <token>',
     });
   }
 
-  // 3. Require Bearer scheme
-  if (!authHeader.startsWith('Bearer ')) {
+  // 2. Malformed scheme (must be "Bearer <token>")
+  const parts = authHeader.trim().split(/\s+/);
+  if (parts.length !== 2 || parts[0].toLowerCase() !== 'bearer') {
     return res.status(401).json({
       success: false,
       error:   'Unauthorized',
-      message: 'Authorization header must use the Bearer scheme.',
+      message: 'Invalid authorization format. Format must be: Bearer <token>',
     });
   }
 
-  // 4. Extract token
-  const token = authHeader.slice(7).trim(); // remove "Bearer "
-  if (!token) {
+  const token = parts[1];
+
+  // 3. Empty token string
+  if (!token || token.trim() === '') {
     return res.status(401).json({
       success: false,
       error:   'Unauthorized',
-      message: 'Token is empty. Please log in again.',
+      message: 'Token is missing from Authorization header.',
     });
   }
 
-  // 5. Verify token — rejects expired, malformed, or wrongly signed tokens
+  // 4. Verify signature, structure, and expiration
   let payload;
   try {
-    payload = jwt.verify(token, secret);
+    payload = jwt.verify(token, JWT_SECRET);
   } catch (err) {
-    const message =
-      err.name === 'TokenExpiredError'
-        ? 'Your session has expired. Please log in again.'
-        : 'Invalid or malformed token. Please log in again.';
+    let message = 'Invalid or expired token.';
+    if (err.name === 'TokenExpiredError') {
+      message = 'Token has expired. Please log in again.';
+    } else if (err.name === 'JsonWebTokenError') {
+      message = 'Token verification failed: ' + err.message;
+    }
     return res.status(401).json({
       success: false,
       error:   'Unauthorized',
@@ -74,10 +72,10 @@ function protect(req, res, next) {
     });
   }
 
-  // 6. Trust only the verified payload — attach minimal identity to request
+  // 5. Trust only the verified payload — attach minimal identity to request
   // The payload contains { sub: userId, email, role } (no passwords, no hashes).
   req.user = {
-    id:    payload.sub,
+    id:    payload.sub || payload.id || payload.userId,
     email: payload.email,
     role:  payload.role || 'student',
   };

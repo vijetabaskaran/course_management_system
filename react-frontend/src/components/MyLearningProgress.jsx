@@ -13,7 +13,7 @@ function CourseProgressCard({ item, onUpdate, onToast }) {
     domain: 'General',
   };
 
-  const isCompleted = item.progressPercentage === 100 || item.enrollmentStatus === 'completed';
+  const isCompleted = item.progressPercentage === 100;
   const totalLessons = item.totalLessons || 10;
 
   // Form state
@@ -82,8 +82,8 @@ function CourseProgressCard({ item, onUpdate, onToast }) {
     }
   };
 
-  const statusLabel = isCompleted ? 'Completed' : 'In Progress';
   const pct = item.progressPercentage || 0;
+  const statusLabel = isCompleted ? 'Completed' : pct > 0 ? 'In Progress' : 'Not Started';
 
   return (
     <div className="course-card my-course-card progress-course-card" id={`progress-card-${item.courseId}`}>
@@ -312,8 +312,9 @@ export default function MyLearningProgress({ onBrowse, onToast }) {
   const totalCoursesCount = progressList.length;
 
   // 2. Completed Courses: Count records where progressPercentage equals 100
-  const completedCoursesCount = progressList.filter(
-    (p) => p.progressPercentage === 100 || p.enrollmentStatus === 'completed'
+  const completedCoursesCount = progressList.filter((p) => p.progressPercentage === 100).length;
+  const inProgressCount = progressList.filter(
+    (p) => p.progressPercentage > 0 && p.progressPercentage < 100
   ).length;
 
   // 3. Average Progress: Arithmetic mean of progress percentages, rounded to nearest integer
@@ -378,6 +379,35 @@ export default function MyLearningProgress({ onBrowse, onToast }) {
             style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}
           >
             Total Courses
+          </div>
+        </div>
+
+        {/* Card: In Progress */}
+        <div
+          className="stat-card"
+          id="summary-card-in-progress-courses"
+          style={{
+            background: 'var(--bg-card, #fff)',
+            border: '1px solid var(--border, #e2e8f0)',
+            borderRadius: '12px',
+            padding: '1.25rem',
+            textAlign: 'center',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
+          }}
+        >
+          <div style={{ fontSize: '2rem', marginBottom: '0.4rem' }}>⏳</div>
+          <div
+            className="stat-card-num"
+            id="summary-in-progress-courses-val"
+            style={{ fontSize: '1.8rem', fontWeight: 800, color: '#f59e0b' }}
+          >
+            {inProgressCount}
+          </div>
+          <div
+            className="stat-card-label"
+            style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}
+          >
+            In Progress
           </div>
         </div>
 

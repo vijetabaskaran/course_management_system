@@ -3001,3 +3001,17 @@
     gap: 0.5rem;
   }
 }
+/* Certificate modal responsive & anti-crop styling */
+.certificate-modal-box {
+  max-width: 820px !important;
+  width: 95vw;
+  box-sizing: border-box;
+}
+.cert-modal-body {
+  overflow-x: auto;
+  padding: 1rem;
+}
+.certificate-preview-frame {
+  box-sizing: border-box;
+  min-width: 320px;
+}
