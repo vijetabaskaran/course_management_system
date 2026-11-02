@@ -11,6 +11,7 @@ import CourseLearningView from '../components/CourseLearningView';
 import CertificateModal from '../components/CertificateModal';
 import MyCourses from '../components/MyCourses';
 import MyLearningProgress from '../components/MyLearningProgress';
+import Chat from '../components/Chat';
 import {
   getInitials, generateStudentId, formatCurrentDate,
   getGreeting, getProgressColor,
@@ -40,6 +41,10 @@ const STUDENT_SECTIONS = [
   {
     key: 'progress', label: 'Learning Progress',
     icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20v-6M6 20V10M18 20V4"/></svg>,
+  },
+  {
+    key: 'chat', label: 'Chat',
+    icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
   },
   {
     key: 'profile', label: 'My Profile',
@@ -482,7 +487,7 @@ export default function StudentDashboard({ initialSection = 'overview' }) {
   }
 
   const breadcrumbLabels = {
-    overview: 'Overview', browse: 'Browse Courses', courses: 'My Courses', progress: 'Learning Progress', profile: 'My Profile',
+    overview: 'Overview', browse: 'Browse Courses', courses: 'My Courses', progress: 'Learning Progress', chat: 'Chat', profile: 'My Profile',
   };
 
   const renderSection = () => {
@@ -530,6 +535,8 @@ export default function StudentDashboard({ initialSection = 'overview' }) {
             onToast={showToast}
           />
         );
+      case 'chat':
+        return <Chat key="chat" />;
       case 'profile':  
         return <ProfileSection key={activeSection} user={user} enrollments={myEnrollments}/>;
       default:         

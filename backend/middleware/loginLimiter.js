@@ -14,7 +14,7 @@ const loginLimiter = rateLimit({
   max: 10,                   // max 10 requests per window per IP
   standardHeaders: true,     // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false,      // Disable the `X-RateLimit-*` headers
-  skipSuccessfulRequests: false,
+  skipSuccessfulRequests: true,
   message: {
     success: false,
     error: 'TooManyRequests',

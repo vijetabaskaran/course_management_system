@@ -91,7 +91,9 @@ async function loginStudent(req, res, next) {
     if (!student) {
       return res.status(401).json({ success: false, error: 'Unauthorized', message: 'Invalid email or password.' });
     }
-    res.json({ success: true, student });
+    const { signToken } = require('../services/authService');
+    const token = signToken(student);
+    res.json({ success: true, token, student });
   } catch (err) { next(err); }
 }
 

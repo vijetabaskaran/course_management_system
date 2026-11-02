@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { getSession, createSession, destroySession, authenticateAdmin } from '../services/storage';
 import api, { loginStudent } from '../services/api';
+import { connectSocket, disconnectSocket } from '../api/socketClient';
 
 const AuthContext = createContext(null);
 
@@ -22,10 +23,14 @@ async function authenticateStudentJWT(email, password) {
     // data = { message, token, tokenType, expiresIn, student?, user?, role? }
     if (data && data.token) {
       sessionStorage.setItem('token', data.token);
+      localStorage.setItem('token', data.token);
       const account = data.student || data.user || {};
       const verifiedRole = data.role || account.role || 'student';
       sessionStorage.setItem('role', verifiedRole);
       return {
+        id:         account.id || account.legacyId || account._id,
+        _id:        account._id ? String(account._id) : undefined,
+        legacyId:   account.legacyId,
         email:      account.email || email,
         username:   account.username || (account.email ? account.email.split('@')[0] : email.split('@')[0]),
         fullname:   account.fullname || 'Student',
@@ -51,11 +56,17 @@ async function authenticateStudentJWT(email, password) {
   try {
     const res = await api.post('/students/login', { email, password });
     if (res.data && res.data.student) {
-      sessionStorage.removeItem('token');
+      if (res.data.token) {
+        sessionStorage.setItem('token', res.data.token);
+        localStorage.setItem('token', res.data.token);
+      }
       const student = res.data.student;
       const verifiedRole = res.data.role || student.role || 'student';
       sessionStorage.setItem('role', verifiedRole);
       return {
+        id:         student.id || student.legacyId || student._id,
+        _id:        student._id ? String(student._id) : undefined,
+        legacyId:   student.legacyId,
         email:      student.email,
         username:   student.username,
         fullname:   student.fullname,
@@ -82,6 +93,7 @@ export function AuthProvider({ children }) {
       if (session.user.role) {
         sessionStorage.setItem('role', session.user.role);
       }
+      connectSocket();
     }
     setLoading(false);
   }, []);
@@ -99,8 +111,12 @@ export function AuthProvider({ children }) {
           const verifiedRole = data.role || account.role;
           if (data && data.token && verifiedRole === 'admin') {
             sessionStorage.setItem('token', data.token);
+            localStorage.setItem('token', data.token);
             sessionStorage.setItem('role', 'admin');
             authenticated = {
+              id:         account.id || account.legacyId || account._id || 'admin-1',
+              _id:        account._id ? String(account._id) : undefined,
+              legacyId:   account.legacyId,
               email:      account.email || email,
               username:   account.username || 'admin',
               fullname:   account.fullname || 'Administrator',
@@ -119,10 +135,14 @@ export function AuthProvider({ children }) {
             const data = res.data;
             if (data && data.token) {
               sessionStorage.setItem('token', data.token);
+              localStorage.setItem('token', data.token);
               const account = data.user || data.student || {};
               const verifiedRole = data.role || account.role || 'admin';
               sessionStorage.setItem('role', verifiedRole);
               authenticated = {
+                id:         account.id || account.legacyId || account._id || 'admin-1',
+                _id:        account._id ? String(account._id) : undefined,
+                legacyId:   account.legacyId,
                 email:      account.email || email,
                 username:   account.username || 'admin',
                 fullname:   account.fullname || 'Administrator',
@@ -149,13 +169,16 @@ export function AuthProvider({ children }) {
     if (!authenticated) return { success: false };
     createSession(authenticated, remember);
     setUser(authenticated);
+    connectSocket();
     return { success: true, user: authenticated };
   }, []);
 
   const logout = useCallback(() => {
-    // Remove JWT and role from sessionStorage (Task 10 & 11)
+    disconnectSocket();
+    // Remove JWT and role from sessionStorage (Task 10 & 11) and localStorage
     sessionStorage.removeItem('token');
     sessionStorage.removeItem('role');
+    localStorage.removeItem('token');
     // Remove session from localStorage
     destroySession();
     setUser(null);
