@@ -7,6 +7,8 @@ const ChatNotificationContext = createContext({
   unreadCount: 0,
   unreadByContact: {},
   activeChatContactId: null,
+  incomingToast: null,
+  clearIncomingToast: () => {},
   setActiveChatContactId: () => {},
   markContactAsRead: () => {},
   fetchUnreadCounts: () => {},
@@ -17,6 +19,17 @@ export function ChatNotificationProvider({ children }) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [unreadByContact, setUnreadByContact] = useState({});
   const [activeChatContactId, setActiveChatContactId] = useState(null);
+  const [incomingToast, setIncomingToast] = useState(null);
+
+  const clearIncomingToast = useCallback(() => setIncomingToast(null), []);
+
+  useEffect(() => {
+    if (!incomingToast) return;
+    const timer = setTimeout(() => {
+      setIncomingToast(null);
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [incomingToast]);
 
   const activeContactRef = useRef(activeChatContactId);
   useEffect(() => {
@@ -133,7 +146,7 @@ export function ChatNotificationProvider({ children }) {
         return;
       }
 
-      // Otherwise increment unread count
+      // Otherwise increment unread count and trigger in-app toast notification
       setUnreadCount(prev => prev + 1);
       setUnreadByContact(prev => {
         const next = { ...prev };
@@ -144,6 +157,13 @@ export function ChatNotificationProvider({ children }) {
           next[k] = newCount;
         }
         return next;
+      });
+
+      setIncomingToast({
+        id: newMsg._id || Date.now(),
+        senderName: newMsg.senderName || 'New Message',
+        content: newMsg.content && newMsg.content.length > 55 ? newMsg.content.slice(0, 52) + '...' : newMsg.content,
+        senderId,
       });
     };
 
@@ -162,6 +182,8 @@ export function ChatNotificationProvider({ children }) {
         unreadCount,
         unreadByContact,
         activeChatContactId,
+        incomingToast,
+        clearIncomingToast,
         setActiveChatContactId,
         markContactAsRead,
         fetchUnreadCounts,

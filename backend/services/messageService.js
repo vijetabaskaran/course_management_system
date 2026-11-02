@@ -167,16 +167,65 @@ async function getHistory(user, targetUserId, queryOptions = {}) {
 async function getContacts(currentUser) {
   const currentUserId = String(currentUser?.id || currentUser?.email || '').trim();
   const receiverAliases = await messageModel.resolveUserAliases(currentUserId);
-  const [allUsers, unreadData] = await Promise.all([
+  const Message = require('../models/schemas/MessageSchema');
+
+  const [allUsers, unreadData, latestAgg] = await Promise.all([
     User.find({}).select('-password').lean(),
     messageModel.getUnreadCounts(receiverAliases),
+    Message.aggregate([
+      {
+        $match: {
+          $or: [
+            { senderId: { $in: receiverAliases } },
+            { receiverId: { $in: receiverAliases } },
+            { senderEmail: { $in: receiverAliases } },
+            { receiverEmail: { $in: receiverAliases } },
+          ],
+        },
+      },
+      { $sort: { createdAt: -1 } },
+      {
+        $addFields: {
+          partnerId: {
+            $cond: {
+              if: { $in: ['$senderId', receiverAliases] },
+              then: '$receiverId',
+              else: '$senderId',
+            },
+          },
+          otherEmail: {
+            $cond: {
+              if: { $in: ['$senderId', receiverAliases] },
+              then: '$receiverEmail',
+              else: '$senderEmail',
+            },
+          },
+        },
+      },
+      {
+        $group: {
+          _id: '$partnerId',
+          lastMessage: { $first: '$content' },
+          lastMessageAt: { $first: '$createdAt' },
+          otherEmail: { $first: '$otherEmail' },
+        },
+      },
+    ]).catch(() => []),
   ]);
+
+  const lastMsgMap = {};
+  for (const item of latestAgg || []) {
+    if (item._id) lastMsgMap[String(item._id)] = item;
+    if (item.otherEmail) lastMsgMap[String(item.otherEmail).toLowerCase()] = item;
+  }
 
   const contacts = allUsers
     .map(u => {
       const id = u.legacyId || String(u._id);
       const email = (u.email || '').toLowerCase();
       const unreadCount = unreadData.bySender[id] || unreadData.bySender[String(u._id)] || (email ? unreadData.bySender[email] : 0) || 0;
+      const lastMsgInfo = lastMsgMap[id] || lastMsgMap[String(u._id)] || (email ? lastMsgMap[email] : null);
+
       return {
         id,
         _id: String(u._id),
@@ -185,6 +234,8 @@ async function getContacts(currentUser) {
         role: u.role || 'student',
         department: u.department || '',
         unreadCount,
+        lastMessage: lastMsgInfo?.lastMessage || '',
+        lastMessageAt: lastMsgInfo?.lastMessageAt || null,
       };
     })
     .filter(u => u.id !== currentUserId && u.email !== currentUser?.email);

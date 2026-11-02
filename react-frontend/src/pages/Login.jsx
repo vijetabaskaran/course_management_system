@@ -36,11 +36,13 @@ export default function Login() {
     }
   }, [user, navigate]);
 
-  // Show registration success
+  // Show registration success or session expiration alert
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     if (params.get('registered') === 'true') {
       setAlert({ type: 'success', message: '🎉 Registration successful! You can now log in.' });
+    } else if (params.get('expired') === '1' || params.get('expired') === 'true') {
+      setAlert({ type: 'error', message: '⏱ Your session has expired. Please log in again.' });
     }
   }, [location]);
 

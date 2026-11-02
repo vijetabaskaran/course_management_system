@@ -1001,7 +1001,7 @@ function SettingsSection({ toast }) {
 /* ── Main AdminDashboard ──────────────────────── */
 export default function AdminDashboard() {
   const { user, loading: authLoading } = useAuth();
-  const { unreadCount } = useChatNotifications();
+  const { unreadCount, incomingToast, clearIncomingToast } = useChatNotifications();
   const {
     courses, students, enrollments,
     loading: dataLoading,
@@ -1190,6 +1190,72 @@ export default function AdminDashboard() {
       )}
       {deleteCourseObj && (
         <DeleteModal course={deleteCourseObj} enrollments={enrollments} onCancel={() => setDeleteCourseObj(null)} onConfirm={handleDeleteConfirm} deleting={deleting}/>
+      )}
+
+      {incomingToast && activeSection !== 'chat' && (
+        <div
+          onClick={() => {
+            setActiveSection('chat');
+            clearIncomingToast();
+          }}
+          style={{
+            position: 'fixed',
+            bottom: '24px',
+            right: '24px',
+            background: 'var(--bg-card, #ffffff)',
+            border: '1px solid var(--border)',
+            borderLeft: '4px solid #ef4444',
+            borderRadius: '10px',
+            padding: '12px 16px',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            cursor: 'pointer',
+            zIndex: 9999,
+            maxWidth: '360px',
+          }}
+        >
+          <div style={{
+            width: '36px',
+            height: '36px',
+            borderRadius: '50%',
+            background: '#ef4444',
+            color: '#fff',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontWeight: 700,
+            flexShrink: 0,
+            fontSize: '1rem',
+          }}>
+            💬
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+              {incomingToast.senderName}
+            </div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {incomingToast.content}
+            </div>
+          </div>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              clearIncomingToast();
+            }}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--text-secondary)',
+              cursor: 'pointer',
+              fontSize: '0.9rem',
+              padding: '2px',
+            }}
+          >
+            ✕
+          </button>
+        </div>
       )}
 
       <Toast message={toastMsg} onHide={clearToast}/>

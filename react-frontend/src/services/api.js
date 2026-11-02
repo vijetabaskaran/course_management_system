@@ -29,11 +29,25 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// ── Response interceptor: surface meaningful backend error messages ───────────
+// ── Response interceptor: surface meaningful backend error messages & handle session expiration ───
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Preserve the original Axios error so callers can inspect .response.data
+    // Graceful 1-Hour JWT Expiration Handling (Improvement 4)
+    if (error.response?.status === 401) {
+      const errType = error.response.data?.error;
+      const errMsg = String(error.response.data?.message || '').toLowerCase();
+      if (errType === 'TokenExpiredError' || errMsg.includes('expired')) {
+        sessionStorage.removeItem('token');
+        sessionStorage.removeItem('role');
+        localStorage.removeItem('token');
+        localStorage.removeItem('eduportal_session');
+        const currentPath = window.location.pathname;
+        if (!currentPath.includes('/login') && !currentPath.includes('/register')) {
+          window.location.href = '/login?expired=1';
+        }
+      }
+    }
     return Promise.reject(error);
   }
 );

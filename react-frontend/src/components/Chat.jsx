@@ -172,6 +172,26 @@ export default function Chat() {
       }
     };
 
+    const onReadReceipt = (data) => {
+      console.log('[Chat.jsx] Received message:read_receipt event:', data);
+      setMessages((prev) =>
+        prev.map((m) => {
+          const myId = String(user?.id || user?._id || user?.legacyId || '');
+          const myEmail = (user?.email || '').toLowerCase();
+          const isFromMe =
+            m.senderId === myId ||
+            (m.senderEmail && m.senderEmail.toLowerCase() === myEmail);
+          const isReadByPartner =
+            m.receiverId === data.readBy ||
+            (m.receiverEmail && m.receiverEmail.toLowerCase() === (data.readByEmail || '').toLowerCase());
+          if (isFromMe && isReadByPartner) {
+            return { ...m, isRead: true, readAt: data.readAt || new Date().toISOString() };
+          }
+          return m;
+        })
+      );
+    };
+
     const onMessageError = (err) => {
       console.error('[Chat.jsx] Received message:error event:', err);
       setSendError(err.message || 'Error processing message.');
@@ -181,12 +201,14 @@ export default function Chat() {
     socket.on('connect', onConnect);
     socket.on('disconnect', onDisconnect);
     socket.on('message:receive', onMessageReceive);
+    socket.on('message:read_receipt', onReadReceipt);
     socket.on('message:error', onMessageError);
 
     return () => {
       socket.off('connect', onConnect);
       socket.off('disconnect', onDisconnect);
       socket.off('message:receive', onMessageReceive);
+      socket.off('message:read_receipt', onReadReceipt);
       socket.off('message:error', onMessageError);
     };
   }, [user, markContactAsRead]);
@@ -218,6 +240,12 @@ export default function Chat() {
           setSending(false);
           if (ack && ack.success) {
             setInputText('');
+            // Optimistically update conversation snippet in left contact list
+            setContacts(prev => prev.map(c => (
+              c.id === selectedContact.id || c._id === selectedContact._id
+                ? { ...c, lastMessage: content, lastMessageAt: new Date().toISOString() }
+                : c
+            )));
           } else {
             setSendError(ack?.error || 'Failed to send message.');
           }
@@ -418,6 +446,11 @@ export default function Chat() {
                             {unread > 99 ? '99+' : unread}
                           </span>
                         )}
+                        {contact.lastMessageAt && (
+                          <span style={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>
+                            {formatTimestamp(contact.lastMessageAt)}
+                          </span>
+                        )}
                         <span style={{
                           fontSize: '0.7rem',
                           padding: '1px 6px',
@@ -570,14 +603,31 @@ export default function Chat() {
                       }}>
                         {msg.content}
                       </div>
-                      <span style={{
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
                         fontSize: '0.7rem',
                         color: 'var(--text-secondary)',
                         marginTop: '3px',
                         padding: '0 2px',
                       }}>
-                        {formatTimestamp(msg.createdAt)}
-                      </span>
+                        <span>{formatTimestamp(msg.createdAt)}</span>
+                        {isMine && (
+                          <span
+                            title={msg.isRead ? (msg.readAt ? `Read at ${formatTimestamp(msg.readAt)}` : 'Read') : 'Sent'}
+                            style={{
+                              fontSize: '0.75rem',
+                              fontWeight: 700,
+                              color: msg.isRead ? '#38bdf8' : 'var(--text-secondary)',
+                              marginLeft: '3px',
+                              letterSpacing: '-1px',
+                            }}
+                          >
+                            {msg.isRead ? '✓✓' : '✓'}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   );
                 })
