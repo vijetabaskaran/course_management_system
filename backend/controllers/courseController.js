@@ -2,15 +2,37 @@
 /**
  * controllers/courseController.js  (MongoDB/Mongoose version)
  * HTTP request/response handling for courses.
- * All service calls are now properly awaited.
+ * All service calls are properly awaited.
+ * Supports pagination via ?page=1&limit=20 while remaining backward-compatible.
  */
 const courseService = require('../services/courseService');
 
 /** GET /courses */
 async function getAllCourses(req, res, next) {
   try {
-    const courses = await courseService.getAll();
-    res.json(courses);
+    const { page, limit } = req.query;
+    const allCourses = await courseService.getAll();
+
+    // If pagination parameters are explicitly requested, return paginated envelope
+    if (page !== undefined || limit !== undefined) {
+      const pageNum = Math.max(1, parseInt(page, 10) || 1);
+      const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+      const total = allCourses.length;
+      const startIndex = (pageNum - 1) * limitNum;
+      const paginated = allCourses.slice(startIndex, startIndex + limitNum);
+
+      return res.json({
+        success: true,
+        count: paginated.length,
+        total,
+        page: pageNum,
+        pages: Math.ceil(total / limitNum) || 1,
+        courses: paginated,
+      });
+    }
+
+    // Default backward-compatible response (plain array)
+    res.json(allCourses);
   } catch (err) { next(err); }
 }
 

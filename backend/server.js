@@ -11,9 +11,10 @@ require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const express    = require('express');
 const cors       = require('cors');
+const helmet     = require('helmet');
 const morgan     = require('morgan');
 
-const { connectDB, checkDBHealth } = require('./config/mongoose');
+const { connectDB, checkDBHealth, disconnectDB } = require('./config/mongoose');
 
 const courseRoutes     = require('./routes/courseRoutes');
 const studentRoutes    = require('./routes/studentRoutes');
@@ -22,12 +23,16 @@ const authRoutes       = require('./routes/authRoutes');
 const learningProgressRoutes = require('./routes/learningProgressRoutes');
 const { notFound, globalError } = require('./middleware/errorMiddleware');
 
-
 const app  = express();
 const PORT = process.env.PORT || 4000;
 const isDev = process.env.NODE_ENV !== 'production';
 
-// ── CORS ────────────────────────────────────────────────────────────────────
+// ── Security Headers (Activity 14.5) ─────────────────────────────────────────
+app.use(helmet({
+  crossOriginResourcePolicy: false,
+}));
+
+// ── CORS (Activity 14.1) ─────────────────────────────────────────────────────
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
   : ['http://localhost:5173', 'http://127.0.0.1:5173'];
@@ -46,7 +51,7 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ── Request logging ──────────────────────────────────────────────────────────
+// ── Request logging (Activity 14.8) ──────────────────────────────────────────
 app.use(morgan(isDev ? 'dev' : 'combined'));
 
 // ── Root status endpoint ─────────────────────────────────────────────────────
@@ -108,6 +113,8 @@ app.get('/api/health', async (req, res) => {
 app.use('/api/v1/auth',        authRoutes);
 app.use('/api/v1/enrollments', enrollmentRoutes);
 app.use('/api/v1/progress',    learningProgressRoutes);
+app.use('/api/v1/courses',     courseRoutes);
+app.use('/api/v1/students',    studentRoutes);
 app.use('/courses',            courseRoutes);
 app.use('/students',           studentRoutes);
 app.use('/enrollments',        enrollmentRoutes);
@@ -117,12 +124,14 @@ app.use('/progress',           learningProgressRoutes);
 app.use(notFound);
 app.use(globalError);
 
+let activeServer = null;
+
 // ── Start ─────────────────────────────────────────────────────────────────────
 async function startServer(port = PORT) {
   // Connect to MongoDB FIRST — if this fails, the server does NOT start.
   await connectDB();
 
-  return app.listen(port, () => {
+  activeServer = app.listen(port, () => {
     const line = '─'.repeat(50);
     console.log('\n' + line);
     console.log('  🎓  EduPortal Backend');
@@ -140,6 +149,8 @@ async function startServer(port = PORT) {
     console.log('  GET  /api/health');
     console.log(line + '\n');
   });
+
+  return activeServer;
 }
 
 if (!process.env.TEST_MODE) {
@@ -149,17 +160,32 @@ if (!process.env.TEST_MODE) {
   });
 }
 
-// Graceful shutdown
-process.on('SIGTERM', async () => {
-  const { disconnectDB } = require('./config/mongoose');
-  await disconnectDB();
-  process.exit(0);
+// ── Process Error Handling & Graceful Shutdown (Activity 14.10) ───────────────
+process.on('unhandledRejection', (reason) => {
+  console.error('[FATAL] Unhandled Rejection:', reason);
 });
-process.on('SIGINT', async () => {
-  const { disconnectDB } = require('./config/mongoose');
-  await disconnectDB();
-  process.exit(0);
+
+process.on('uncaughtException', (err) => {
+  console.error('[FATAL] Uncaught Exception:', err);
+  disconnectDB().finally(() => {
+    process.exit(1);
+  });
 });
+
+async function shutdownGracefully(signal) {
+  if (activeServer) {
+    activeServer.close(async () => {
+      await disconnectDB();
+      process.exit(0);
+    });
+  } else {
+    await disconnectDB();
+    process.exit(0);
+  }
+}
+
+process.on('SIGTERM', () => shutdownGracefully('SIGTERM'));
+process.on('SIGINT', () => shutdownGracefully('SIGINT'));
 
 module.exports = app;
 module.exports.startServer = startServer;

@@ -52,9 +52,12 @@ export function CourseProvider({ children }) {
         api.get("/students"),
         api.get("/enrollments"),
       ]);
-      setCourses(courseRes.data.map(normalizeCourse));
-      setStudents(studentRes.data);
-      setEnrollments(enrollmentRes.data);
+      const rawCourses = Array.isArray(courseRes.data) ? courseRes.data : (courseRes.data?.courses || []);
+      setCourses(rawCourses.map(normalizeCourse));
+      const rawStudents = Array.isArray(studentRes.data) ? studentRes.data : (studentRes.data?.students || []);
+      setStudents(rawStudents);
+      const rawEnrollments = Array.isArray(enrollmentRes.data) ? enrollmentRes.data : (enrollmentRes.data?.enrollments || []);
+      setEnrollments(rawEnrollments);
       setError(null);
       hasLoadedRef.current = true;
     } catch (err) {

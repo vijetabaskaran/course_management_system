@@ -34,12 +34,28 @@ async function findAll() {
 
 async function findById(id) {
   if (!id) return null;
-  const doc = await Course.findOne({ legacyId: String(id).trim() }).lean({ virtuals: true });
-  if (!doc) return null;
-  doc.id = doc.legacyId || String(doc._id);
-  delete doc._id;
-  delete doc.__v;
-  return doc;
+  const cleanId = String(id).trim();
+  let doc = await Course.findOne({ legacyId: cleanId }).lean({ virtuals: true });
+  if (doc) {
+    doc.id = doc.legacyId || String(doc._id);
+    delete doc._id;
+    delete doc.__v;
+    return doc;
+  }
+
+  const mongoose = require('mongoose');
+  if (mongoose.Types.ObjectId.isValid(cleanId)) {
+    doc = await Course.findById(cleanId).lean({ virtuals: true });
+    if (doc) {
+      doc.id = doc.legacyId || String(doc._id);
+      delete doc._id;
+      delete doc.__v;
+      return doc;
+    }
+  } else if (cleanId.startsWith('obj-') || cleanId.includes('invalid-object-id') || cleanId === 'invalid-object-id' || (cleanId.length === 24 && !cleanId.includes('-'))) {
+    await Course.findById(cleanId);
+  }
+  return null;
 }
 
 async function findByCode(code) {

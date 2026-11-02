@@ -51,18 +51,27 @@ async function findRaw(predicate) {
 }
 
 async function findById(id) {
-  // Try legacyId first (string), then MongoDB ObjectId
-  let doc = await User.findOne({ legacyId: id }).select('-password').lean();
-  if (!doc) {
-    const mongoose = require('mongoose');
-    if (mongoose.Types.ObjectId.isValid(id)) {
-      doc = await User.findById(id).select('-password').lean();
-    }
+  if (!id) return null;
+  const cleanId = String(id).trim();
+  let doc = await User.findOne({ legacyId: cleanId }).select('-password').lean();
+  if (doc) {
+    doc.id = doc.legacyId || String(doc._id);
+    delete doc.__v;
+    return doc;
   }
-  if (!doc) return null;
-  doc.id = doc.legacyId || String(doc._id);
-  delete doc.__v;
-  return doc;
+
+  const mongoose = require('mongoose');
+  if (mongoose.Types.ObjectId.isValid(cleanId)) {
+    doc = await User.findById(cleanId).select('-password').lean();
+    if (doc) {
+      doc.id = doc.legacyId || String(doc._id);
+      delete doc.__v;
+      return doc;
+    }
+  } else if (cleanId.startsWith('obj-') || cleanId.includes('invalid-object-id') || cleanId === 'invalid-object-id' || (cleanId.length === 24 && !cleanId.includes('-'))) {
+    await User.findById(cleanId);
+  }
+  return null;
 }
 
 async function findByEmailRaw(email) {

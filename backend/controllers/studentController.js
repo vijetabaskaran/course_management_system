@@ -2,16 +2,37 @@
 /**
  * controllers/studentController.js  (MongoDB/Mongoose version)
  * HTTP layer for students.
- * All service calls are now async/await.
+ * All service calls are async/await.
  * SECURITY: passwords are NEVER included in any response.
+ * Supports pagination via ?page=1&limit=20 while remaining backward-compatible.
  */
 const studentService = require('../services/studentService');
 
 /** GET /students */
 async function getAllStudents(req, res, next) {
   try {
-    const students = await studentService.getAll();
-    res.json(students);
+    const { page, limit } = req.query;
+    const allStudents = await studentService.getAll();
+
+    // If pagination parameters are requested, return paginated envelope
+    if (page !== undefined || limit !== undefined) {
+      const pageNum = Math.max(1, parseInt(page, 10) || 1);
+      const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+      const total = allStudents.length;
+      const startIndex = (pageNum - 1) * limitNum;
+      const paginated = allStudents.slice(startIndex, startIndex + limitNum);
+
+      return res.json({
+        success: true,
+        count: paginated.length,
+        total,
+        page: pageNum,
+        pages: Math.ceil(total / limitNum) || 1,
+        students: paginated,
+      });
+    }
+
+    res.json(allStudents);
   } catch (err) { next(err); }
 }
 

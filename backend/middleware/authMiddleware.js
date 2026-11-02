@@ -16,7 +16,12 @@
  */
 const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'supersecret_jwt_key_for_eduportal_student_system_2026';
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!JWT_SECRET) {
+  console.error('[FATAL] JWT_SECRET environment variable is not set. Auth middleware cannot function.');
+  // Do not crash here — let individual requests fail with 500 rather than killing the server.
+}
 
 /**
  * Express middleware to protect routes requiring JWT authentication.
