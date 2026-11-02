@@ -81,6 +81,36 @@ print(f"Student: {user_name} | Course: {course} ({duration_weeks} weeks)")`
           options: ['Semicolons at the end of each line', 'Indentation (whitespace)', 'Curly brackets {}', 'BEGIN and END keywords'],
           correctAnswer: 1,
           explanation: 'Python relies on uniform indentation to delimit blocks of statements.'
+        },
+        {
+          question: 'Which built-in Python function returns the memory address/identity of an object?',
+          options: ['addr()', 'id()', 'memory()', 'pointer()'],
+          correctAnswer: 1,
+          explanation: 'id() returns the unique memory address identifier of an object in CPython.'
+        },
+        {
+          question: 'What is the boolean truth value of an empty string "" and integer 0 in Python?',
+          options: ['Both evaluate to True', 'Both evaluate to False', '0 is False, "" is True', '0 is True, "" is False'],
+          correctAnswer: 1,
+          explanation: 'In Python, 0, empty sequences, and None evaluate to False.'
+        },
+        {
+          question: 'Which operator performs integer floor division in Python?',
+          options: ['/', '//', '%', 'div'],
+          correctAnswer: 1,
+          explanation: 'The // operator performs floor division, truncating fractional parts.'
+        },
+        {
+          question: 'What does PEP stand for in the Python development ecosystem?',
+          options: ['Python Enhancement Proposal', 'Program Execution Protocol', 'Python Enterprise Package', 'Python Environment Path'],
+          correctAnswer: 0,
+          explanation: 'PEP stands for Python Enhancement Proposal, standardizing features and styling.'
+        },
+        {
+          question: 'Which data type is immutable in Python?',
+          options: ['list', 'dict', 'set', 'tuple'],
+          correctAnswer: 3,
+          explanation: 'Tuples, strings, integers, and floats are immutable in Python.'
         }
       ]
     },
@@ -357,8 +387,11 @@ except Exception as err:
 export function getCourseUnits(course) {
   if (!course) return DEFAULT_CURRICULA.Python;
 
-  // If course already has explicit units attached, return them
-  if (Array.isArray(course.units) && course.units.length >= 5) {
+  // If course already has explicit modules or units attached, return them
+  if (Array.isArray(course.modules) && course.modules.length > 0) {
+    return course.modules;
+  }
+  if (Array.isArray(course.units) && course.units.length > 0) {
     return course.units;
   }
 
@@ -434,6 +467,36 @@ console.log("Environment ready!", config);`
           options: ['Deploying to production', 'Understanding core specifications and requirements', 'Deleting existing files', 'Skipping setup'],
           correctAnswer: 1,
           explanation: 'Understanding specifications ensures proper system design before execution.'
+        },
+        {
+          question: 'What is the role of source control (e.g. Git) when working in ${domain} projects?',
+          options: ['Tracking revision history, collaborating safely, and managing branches', 'Compressing video files', 'Replacing compilers', 'Running unit tests automatically without code'],
+          correctAnswer: 0,
+          explanation: 'Version control tracks code evolutions and coordinates team contributions.'
+        },
+        {
+          question: 'Which command line tool compiles or executes code in modern development workflows?',
+          options: ['Domain CLI runner (e.g. node, python, javac)', 'Calculator', 'Graphic viewer', 'Text editor only'],
+          correctAnswer: 0,
+          explanation: 'Runtime CLIs execute scripts and compile project source trees.'
+        },
+        {
+          question: 'What document establishes coding style rules and naming standards in ${domain}?',
+          options: ['Style Guide (e.g. PEP 8, Airbnb Style Guide)', 'Hardware warranty', 'User manual', 'License agreement'],
+          correctAnswer: 0,
+          explanation: 'Style guides standardize formatting to enhance team readability.'
+        },
+        {
+          question: 'Why should environment variables be used for configuration secrets in ${domain}?',
+          options: ['To avoid hardcoding sensitive API keys or credentials directly in source code', 'To make files larger', 'To slow down git commits', 'They are required by HTML'],
+          correctAnswer: 0,
+          explanation: 'Environment variables isolate credentials from public repositories.'
+        },
+        {
+          question: 'What is the purpose of package managers in ${domain} ecosystems?',
+          options: ['Automating installation, updating, and dependency resolution of third-party libraries', 'Managing physical shipping packages', 'Writing documentation', 'Compiling OS kernels'],
+          correctAnswer: 0,
+          explanation: 'Package managers (npm, pip, maven) resolve library dependency trees.'
         }
       ]
     },
@@ -497,6 +560,36 @@ console.log(processDataset(sampleData));`
           options: ['Tracking data modifications throughout application lifecycle', 'Installing OS packages', 'Printing error logs only', 'Closing ports'],
           correctAnswer: 0,
           explanation: 'State management tracks dynamic changes to application data.'
+        },
+        {
+          question: 'What is the time complexity of looking up a key in an efficient hash map in ${domain}?',
+          options: ['O(1) average time', 'O(N^2)', 'O(N!)', 'O(log N) worst case guaranteed'],
+          correctAnswer: 0,
+          explanation: 'Hash maps achieve constant O(1) average lookup through hash indexing.'
+        },
+        {
+          question: 'What data structure operates on a Last-In, First-Out (LIFO) basis in ${domain}?',
+          options: ['Stack', 'Queue', 'Array', 'Tree'],
+          correctAnswer: 0,
+          explanation: 'Stacks operate strictly on LIFO order (push/pop at top).'
+        },
+        {
+          question: 'What data structure operates on a First-In, First-Out (FIFO) basis?',
+          options: ['Queue', 'Stack', 'Heap', 'Graph'],
+          correctAnswer: 0,
+          explanation: 'Queues process elements in FIFO sequence (enqueue back, dequeue front).'
+        },
+        {
+          question: 'What algorithm strategy breaks a problem down into smaller overlapping subproblems using memoization?',
+          options: ['Dynamic Programming', 'Brute Force', 'Random Search', 'Linear Scan'],
+          correctAnswer: 0,
+          explanation: 'Dynamic programming optimizes recursive problems by caching subproblem solutions.'
+        },
+        {
+          question: 'Why is binary search more efficient than linear search on sorted data?',
+          options: ['It divides the search space in half at each step, running in O(log N) time', 'It scans every item twice', 'It uses random guessing', 'It requires zero memory'],
+          correctAnswer: 0,
+          explanation: 'Binary search halves candidates iteratively, achieving logarithmic complexity.'
         }
       ]
     },
@@ -564,6 +657,36 @@ service.fetchData().then(res => console.log(res));`
           options: ['They prevent the main UI thread from blocking', 'They force CPU overclocking', 'They disable network encryption', 'They bypass server responses'],
           correctAnswer: 0,
           explanation: 'Asynchronous calls allow the user interface to stay responsive while awaiting network results.'
+        },
+        {
+          question: 'What is the Open/Closed Principle (the O in SOLID design)?',
+          options: ['Software entities should be open for extension, but closed for modification', 'Doors should stay open', 'All code must be open source', 'Classes must have no methods'],
+          correctAnswer: 0,
+          explanation: 'The Open/Closed principle advises extending behavior through inheritance/polymorphism without editing verified code.'
+        },
+        {
+          question: 'Which design pattern defines a one-to-many dependency where state changes automatically notify observers?',
+          options: ['Observer Pattern', 'Singleton Pattern', 'Factory Pattern', 'Adapter Pattern'],
+          correctAnswer: 0,
+          explanation: 'The Observer pattern notifies subscribers whenever subject state updates.'
+        },
+        {
+          question: 'What design pattern provides a unified interface to a set of interfaces in a subsystem (simplifying caller interaction)?',
+          options: ['Facade Pattern', 'Decorator Pattern', 'Proxy Pattern', 'Bridge Pattern'],
+          correctAnswer: 0,
+          explanation: 'Facade masks complex internal subsystems behind a clean, simple high-level interface.'
+        },
+        {
+          question: 'What is Dependency Inversion in modern application architecture?',
+          options: ['High-level modules should depend on abstractions (interfaces), not on concrete low-level details', 'Inverting screen orientation', 'Running code backwards', 'Deleting dependencies'],
+          correctAnswer: 0,
+          explanation: 'Dependency inversion decouples components through abstract interfaces.'
+        },
+        {
+          question: 'What is the role of an API Gateway in distributed architectures?',
+          options: ['Acting as a single entry point that routes, authenticates, and rate-limits requests to downstream services', 'Rendering 3D graphics', 'Managing local printers', 'Writing unit tests'],
+          correctAnswer: 0,
+          explanation: 'API Gateways consolidate routing, authentication, and cross-cutting concerns.'
         }
       ]
     },
@@ -631,6 +754,36 @@ function executeOperation(inputPayload) {
           options: ['Enforcing HTTPS encryption and authentication tokens', 'Sending passwords in plain text', 'Removing CORS checks', 'Allowing unauthenticated root access'],
           correctAnswer: 0,
           explanation: 'HTTPS and token authentication guard data integrity and verify caller identity.'
+        },
+        {
+          question: 'What security practice limits system damage by giving users/services only the bare minimum permissions necessary?',
+          options: ['Principle of Least Privilege', 'Defense in Depth', 'Single Sign-On', 'Open Access Model'],
+          correctAnswer: 0,
+          explanation: 'Least privilege minimizes blast radius by restricting access permissions.'
+        },
+        {
+          question: 'What technique mitigates Denial of Service (DoS) by capping the number of requests a client can make in a given timeframe?',
+          options: ['Rate Limiting / Throttling', 'Data Compression', 'SQL Injection', 'Database Indexing'],
+          correctAnswer: 0,
+          explanation: 'Rate limiting prevents service abuse and traffic flooding from abusive clients.'
+        },
+        {
+          question: 'Why should passwords never be stored in plain text or with reversible encryption in databases?',
+          options: ['Database breaches would immediately expose user credentials; passwords must be hashed using salted slow algorithms (bcrypt, argon2)', 'Plain text takes up too much disk space', 'Databases reject plain text strings', 'Passwords must be visible to everyone'],
+          correctAnswer: 0,
+          explanation: 'Salted slow key derivation hashes protect passwords even if database tables are compromised.'
+        },
+        {
+          question: 'What cryptographic hash algorithm family is standardly recommended for digital signatures and data integrity (e.g. SHA-256)?',
+          options: ['SHA-2 / SHA-3', 'MD5 (deprecated)', 'Rot13', 'CRC32'],
+          correctAnswer: 0,
+          explanation: 'SHA-256 provides 256-bit collision resistance for modern integrity verification.'
+          },
+        {
+          question: 'What does Cross-Origin Resource Sharing (CORS) enforce in browser web security?',
+          options: ['Prevents unauthorized web pages from making background API requests to a different domain without explicit server permission headers', 'Encrypts hard drives', 'Blocks spam emails', 'Formats JSON responses'],
+          correctAnswer: 0,
+          explanation: 'CORS uses HTTP response headers to control cross-origin resource access in browsers.'
         }
       ]
     },
@@ -706,6 +859,36 @@ console.log(capstone.generateCertificateSummary());`
           options: [`At least ${QUIZ_PASSING_PERCENTAGE}% passing score`, '100% only', '0%', '50%'],
           correctAnswer: 0,
           explanation: `A score of ${QUIZ_PASSING_PERCENTAGE}% or higher registers successful completion of the unit.`
+        },
+        {
+          question: 'What is the role of Regression Testing before issuing production certificates or releases?',
+          options: ['Ensuring that new code additions or fixes have not broken existing, previously working features', 'Reverting all changes to version 1.0', 'Deleting test cases', 'Measuring CPU clock speed'],
+          correctAnswer: 0,
+          explanation: 'Regression testing verifies system stability across updates.'
+        },
+        {
+          question: 'What metric measures the percentage of code lines executed during automated testing suites?',
+          options: ['Code Coverage', 'Code Complexity', 'Line Density', 'Cyclomatic Index'],
+          correctAnswer: 0,
+          explanation: 'Code coverage quantifies what proportion of codebase branches are validated by test suites.'
+        },
+        {
+          question: 'What does Blue-Green Deployment achieve during software releases?',
+          options: ['Near-zero downtime releases by switching production router traffic between two identical environments', 'Colorful website themes', 'Deploying on sunny days only', 'Deleting old databases'],
+          correctAnswer: 0,
+          explanation: 'Blue-Green routing allows instantaneous switchover and instant rollback if bugs occur.'
+        },
+        {
+          question: 'What is the purpose of Semantic Versioning (SemVer: MAJOR.MINOR.PATCH)?',
+          options: ['Standardizing version increments: Major for breaking changes, Minor for new features, Patch for bug fixes', 'Random version numbering', 'Numbering database tables', 'Licensing code'],
+          correctAnswer: 0,
+          explanation: 'SemVer conveys API stability and backward compatibility guarantees.'
+        },
+        {
+          question: 'Upon passing all 5 units in an EduPortal course with >= 70% assessment scores, what can students view and download?',
+          options: ['Official verifiable Certificate of Completion with trophy badge', 'Source code for the Linux kernel', 'Free server hardware', 'Course cancellation notice'],
+          correctAnswer: 0,
+          explanation: 'Completing all 5 units unlocks the official downloadable certificate of achievement.'
         }
       ]
     }
