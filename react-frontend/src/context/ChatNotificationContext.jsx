@@ -46,6 +46,15 @@ export function ChatNotificationProvider({ children }) {
     fetchUnreadCounts();
   }, [fetchUnreadCounts]);
 
+  // Update document title with unread message badge
+  useEffect(() => {
+    if (unreadCount > 0) {
+      document.title = `(${unreadCount > 99 ? '99+' : unreadCount}) EduPortal`;
+    } else {
+      document.title = 'EduPortal';
+    }
+  }, [unreadCount]);
+
   // ── Mark Contact As Read ──────────────────────────────────────────────────
   const markContactAsRead = useCallback(async (contactId) => {
     if (!contactId || !user) return;
@@ -54,10 +63,15 @@ export function ChatNotificationProvider({ children }) {
       const res = await api.patch(`/api/v1/messages/${contactId}/read`);
       if (res.data?.success) {
         setUnreadCount(res.data.remainingUnread || 0);
-        setUnreadByContact(prev => ({
-          ...prev,
-          [contactId]: 0,
-        }));
+        if (res.data.bySender) {
+          setUnreadByContact(res.data.bySender);
+        } else {
+          setUnreadByContact(prev => ({
+            ...prev,
+            [contactId]: 0,
+            [String(contactId)]: 0,
+          }));
+        }
       }
 
       // 2. Also emit via Socket.IO
@@ -90,27 +104,47 @@ export function ChatNotificationProvider({ children }) {
     // 2. Incoming new message
     const onMessageReceive = (newMsg) => {
       // Check if message was sent TO current user
+      const myIds = [
+        user.id ? String(user.id) : null,
+        user._id ? String(user._id) : null,
+        user.legacyId ? String(user.legacyId) : null,
+      ].filter(Boolean);
+      const myEmail = user.email ? user.email.toLowerCase() : '';
+
+      const recIdStr = newMsg.receiverId ? String(newMsg.receiverId) : '';
+      const recEmailStr = newMsg.receiverEmail ? newMsg.receiverEmail.toLowerCase() : '';
+
       const isForMe =
-        (newMsg.receiverId && (newMsg.receiverId === user.id || newMsg.receiverId === user.legacyId || newMsg.receiverId === user._id)) ||
-        (newMsg.receiverEmail && user.email && newMsg.receiverEmail.toLowerCase() === user.email.toLowerCase());
+        (recIdStr && myIds.includes(recIdStr)) ||
+        (recEmailStr && myEmail && recEmailStr === myEmail);
 
       if (!isForMe) return;
 
-      const senderId = newMsg.senderId;
-      const currentActiveContact = activeContactRef.current;
+      const senderId = newMsg.senderId ? String(newMsg.senderId) : '';
+      const senderEmail = newMsg.senderEmail ? newMsg.senderEmail.toLowerCase() : '';
+      const currentActiveContact = activeContactRef.current ? String(activeContactRef.current) : null;
 
       // If user is currently looking at this sender's conversation, mark as read immediately
-      if (currentActiveContact && (currentActiveContact === senderId || currentActiveContact === newMsg.senderEmail)) {
+      if (
+        currentActiveContact &&
+        (currentActiveContact === senderId || (senderEmail && currentActiveContact.toLowerCase() === senderEmail))
+      ) {
         markContactAsRead(senderId);
         return;
       }
 
       // Otherwise increment unread count
       setUnreadCount(prev => prev + 1);
-      setUnreadByContact(prev => ({
-        ...prev,
-        [senderId]: (prev[senderId] || 0) + 1,
-      }));
+      setUnreadByContact(prev => {
+        const next = { ...prev };
+        const keys = [senderId, senderEmail].filter(Boolean);
+        const currentCount = keys.reduce((max, k) => Math.max(max, prev[k] || 0), 0);
+        const newCount = currentCount + 1;
+        for (const k of keys) {
+          next[k] = newCount;
+        }
+        return next;
+      });
     };
 
     socket.on('unread:count', onUnreadCount);

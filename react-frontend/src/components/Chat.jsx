@@ -6,7 +6,7 @@ import api from '../services/api';
 
 export default function Chat() {
   const { user } = useAuth();
-  const { markContactAsRead, setActiveChatContactId, unreadByContact } = useChatNotifications();
+  const { unreadCount, markContactAsRead, setActiveChatContactId, unreadByContact } = useChatNotifications();
   const [contacts, setContacts] = useState([]);
   const [selectedContact, setSelectedContact] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -34,6 +34,24 @@ export default function Chat() {
     scrollToBottom();
   }, [messages]);
 
+  // ── Helper: Safe Unread Count for a Contact ──────────────────────────────
+  const getContactUnread = useCallback((contact) => {
+    if (!contact) return 0;
+    // Check unreadByContact from context by id, _id, or email
+    if (unreadByContact) {
+      if (contact.id && typeof unreadByContact[contact.id] === 'number') {
+        return unreadByContact[contact.id];
+      }
+      if (contact._id && typeof unreadByContact[contact._id] === 'number') {
+        return unreadByContact[contact._id];
+      }
+      if (contact.email && typeof unreadByContact[contact.email.toLowerCase()] === 'number') {
+        return unreadByContact[contact.email.toLowerCase()];
+      }
+    }
+    return contact.unreadCount || 0;
+  }, [unreadByContact]);
+
   // ── Fetch Available Contacts ──────────────────────────────────────────────
   const fetchContacts = useCallback(async () => {
     try {
@@ -41,20 +59,13 @@ export default function Chat() {
       const res = await api.get('/api/v1/messages/contacts');
       if (res.data?.contacts) {
         setContacts(res.data.contacts);
-        if (res.data.contacts.length > 0 && !selectedContact) {
-          // Default selection: student selects Admin, admin selects Student
-          const preferred = user?.role === 'student'
-            ? res.data.contacts.find(c => c.role === 'admin') || res.data.contacts[0]
-            : res.data.contacts.find(c => c.role === 'student') || res.data.contacts[0];
-          setSelectedContact(preferred);
-        }
       }
     } catch (err) {
       console.error('Failed to load contacts:', err);
     } finally {
       setLoadingContacts(false);
     }
-  }, [selectedContact, user]);
+  }, []);
 
   useEffect(() => {
     fetchContacts();
@@ -108,37 +119,55 @@ export default function Chat() {
     const onMessageReceive = (newMsg) => {
       console.log('[Chat.jsx] Received message:receive event:', newMsg);
       const activeContact = currentContactRef.current;
-      if (!activeContact) {
-        console.log('[Chat.jsx] No activeContact selected, skipping message display');
-        return;
-      }
 
-      const matchesContact =
-        (newMsg.senderId && (newMsg.senderId === activeContact.id || newMsg.senderId === activeContact._id)) ||
-        (newMsg.receiverId && (newMsg.receiverId === activeContact.id || newMsg.receiverId === activeContact._id)) ||
-        (newMsg.senderEmail && activeContact.email && newMsg.senderEmail.toLowerCase() === activeContact.email.toLowerCase()) ||
-        (newMsg.receiverEmail && activeContact.email && newMsg.receiverEmail.toLowerCase() === activeContact.email.toLowerCase());
+      const myId = String(user?.id || user?._id || user?.legacyId || '');
+      const myEmail = (user?.email || '').toLowerCase();
+      const recIdStr = String(newMsg.receiverId || '');
+      const recEmailStr = (newMsg.receiverEmail || '').toLowerCase();
 
-      const matchesUser =
-        (user?.id && (newMsg.senderId === user.id || newMsg.receiverId === user.id)) ||
-        (user?._id && (newMsg.senderId === user._id || newMsg.receiverId === user._id)) ||
-        (user?.legacyId && (newMsg.senderId === user.legacyId || newMsg.receiverId === user.legacyId)) ||
-        (user?.email && (
-          (newMsg.senderEmail && newMsg.senderEmail.toLowerCase() === user.email.toLowerCase()) ||
-          (newMsg.receiverEmail && newMsg.receiverEmail.toLowerCase() === user.email.toLowerCase())
-        ));
+      const isForMe =
+        (recIdStr && (recIdStr === myId || recIdStr === String(user?._id || '') || recIdStr === String(user?.legacyId || ''))) ||
+        (recEmailStr && myEmail && recEmailStr === myEmail);
 
-      const isCurrentConversation = matchesContact && matchesUser;
-      console.log('[Chat.jsx] isCurrentConversation:', isCurrentConversation, { matchesContact, matchesUser });
+      const senderIdStr = String(newMsg.senderId || '');
+      const senderEmailStr = (newMsg.senderEmail || '').toLowerCase();
+
+      // Check if message belongs to the currently active conversation
+      const isCurrentConversation = activeContact && (
+        (activeContact.id && (senderIdStr === String(activeContact.id) || recIdStr === String(activeContact.id))) ||
+        (activeContact._id && (senderIdStr === String(activeContact._id) || recIdStr === String(activeContact._id))) ||
+        (activeContact.email && (senderEmailStr === activeContact.email.toLowerCase() || recEmailStr === activeContact.email.toLowerCase()))
+      );
+
+      console.log('[Chat.jsx] isCurrentConversation:', isCurrentConversation, { isForMe, senderIdStr, activeContact: activeContact?.id });
 
       if (isCurrentConversation) {
         markContactAsRead(activeContact.id);
         setMessages((prev) => {
-          // Avoid duplicate messages
           if (prev.some((m) => m._id === newMsg._id || (m.createdAt === newMsg.createdAt && m.content === newMsg.content))) {
             return prev;
           }
           return [...prev, newMsg];
+        });
+      }
+
+      // If message is for current user and sender is NOT the currently viewed contact, update contacts unread count
+      if (isForMe && !isCurrentConversation) {
+        setContacts((prevContacts) => {
+          return prevContacts.map((c) => {
+            const matchesSender =
+              String(c.id) === senderIdStr ||
+              String(c._id) === senderIdStr ||
+              (c.email && c.email.toLowerCase() === senderEmailStr);
+            if (matchesSender) {
+              return {
+                ...c,
+                unreadCount: (c.unreadCount || 0) + 1,
+                lastMessage: newMsg.content,
+              };
+            }
+            return c;
+          });
         });
       }
     };
@@ -160,7 +189,7 @@ export default function Chat() {
       socket.off('message:receive', onMessageReceive);
       socket.off('message:error', onMessageError);
     };
-  }, [user]);
+  }, [user, markContactAsRead]);
 
   // ── Send Message Handler ──────────────────────────────────────────────────
   const handleSendMessage = async (e) => {
@@ -218,6 +247,18 @@ export default function Chat() {
     c.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
     c.role.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const sortedContacts = [...filteredContacts].sort((a, b) => {
+    const unreadA = getContactUnread(a);
+    const unreadB = getContactUnread(b);
+    if (unreadA > 0 && unreadB === 0) return -1;
+    if (unreadB > 0 && unreadA === 0) return 1;
+    if (unreadA !== unreadB) return unreadB - unreadA;
+    const timeA = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
+    const timeB = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
+    if (timeA && timeB) return timeB - timeA;
+    return a.fullname.localeCompare(b.fullname);
+  });
 
   const formatTimestamp = (dateStr) => {
     if (!dateStr) return '';
@@ -285,35 +326,41 @@ export default function Chat() {
             <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
               Loading contacts...
             </div>
-          ) : filteredContacts.length === 0 ? (
+          ) : sortedContacts.length === 0 ? (
             <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
               No contacts found.
             </div>
           ) : (
-            filteredContacts.map((contact) => {
+            sortedContacts.map((contact) => {
               const isSelected = selectedContact?.id === contact.id;
-              const unread = unreadByContact[contact.id] || unreadByContact[contact._id] || (contact.email ? unreadByContact[contact.email.toLowerCase()] : 0) || contact.unreadCount || 0;
+              const unread = isSelected ? 0 : getContactUnread(contact);
+              const hasUnread = unread > 0;
               return (
                 <div
                   key={contact.id}
-                  onClick={() => setSelectedContact(contact)}
+                  onClick={() => {
+                    setSelectedContact(contact);
+                    markContactAsRead(contact.id);
+                    setContacts(prev => prev.map(c => c.id === contact.id ? { ...c, unreadCount: 0 } : c));
+                  }}
                   style={{
                     padding: '0.75rem 1rem',
                     borderBottom: '1px solid var(--border)',
                     cursor: 'pointer',
                     background: isSelected
                       ? 'rgba(168, 143, 112, 0.15)'
-                      : (unread > 0 ? 'rgba(239, 68, 68, 0.05)' : 'transparent'),
+                      : (hasUnread ? 'rgba(239, 68, 68, 0.08)' : 'transparent'),
+                    borderLeft: hasUnread ? '4px solid #ef4444' : (isSelected ? '4px solid var(--taupe, #A88F70)' : '4px solid transparent'),
                     display: 'flex',
                     alignItems: 'center',
                     gap: '12px',
-                    transition: 'background 0.15s ease',
+                    transition: 'all 0.15s ease',
                   }}
                 >
                   <div style={{
                     position: 'relative',
-                    width: '38px',
-                    height: '38px',
+                    width: '40px',
+                    height: '40px',
                     borderRadius: '50%',
                     background: contact.role === 'admin' ? '#4361ee' : '#A88F70',
                     color: '#fff',
@@ -321,29 +368,30 @@ export default function Chat() {
                     alignItems: 'center',
                     justifyContent: 'center',
                     fontWeight: 600,
-                    fontSize: '0.9rem',
+                    fontSize: '0.95rem',
                     flexShrink: 0,
                   }}>
                     {contact.fullname.charAt(0).toUpperCase()}
-                    {unread > 0 && !isSelected && (
+                    {hasUnread && (
                       <span style={{
                         position: 'absolute',
                         top: '-2px',
                         right: '-2px',
-                        width: '10px',
-                        height: '10px',
+                        width: '12px',
+                        height: '12px',
                         borderRadius: '50%',
-                        background: '#ef4444',
-                        border: '2px solid var(--bg-card, #fff)',
+                        backgroundColor: '#ef4444',
+                        boxShadow: '0 0 6px rgba(239, 68, 68, 0.8)',
+                        border: '2px solid var(--bg-card, #ffffff)',
                       }} />
                     )}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{
-                        fontWeight: unread > 0 ? 700 : (isSelected ? 600 : 500),
+                        fontWeight: hasUnread ? 700 : (isSelected ? 600 : 500),
                         fontSize: '0.9rem',
-                        color: unread > 0 && !isSelected ? '#ef4444' : 'var(--text-primary)',
+                        color: hasUnread ? '#ef4444' : 'var(--text-primary)',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
@@ -351,18 +399,22 @@ export default function Chat() {
                         {contact.fullname}
                       </span>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        {unread > 0 && (
-                          <span style={{
-                            background: '#ef4444',
-                            color: '#ffffff',
-                            fontSize: '0.68rem',
-                            fontWeight: 700,
-                            padding: '1px 6px',
-                            borderRadius: '10px',
-                            minWidth: '18px',
-                            textAlign: 'center',
-                            lineHeight: 1.2,
-                          }}>
+                        {hasUnread && (
+                          <span
+                            className="conversation-unread-badge"
+                            style={{
+                              backgroundColor: '#ef4444',
+                              color: '#ffffff',
+                              fontSize: '0.7rem',
+                              fontWeight: 700,
+                              padding: '2px 7px',
+                              borderRadius: '10px',
+                              minWidth: '20px',
+                              textAlign: 'center',
+                              lineHeight: 1.2,
+                              boxShadow: '0 0 6px rgba(239, 68, 68, 0.4)',
+                            }}
+                          >
                             {unread > 99 ? '99+' : unread}
                           </span>
                         )}
@@ -382,13 +434,13 @@ export default function Chat() {
                     <p style={{
                       margin: '2px 0 0 0',
                       fontSize: '0.75rem',
-                      color: unread > 0 && !isSelected ? 'var(--text-primary)' : 'var(--text-secondary)',
-                      fontWeight: unread > 0 && !isSelected ? 600 : 400,
+                      color: hasUnread ? 'var(--text-primary)' : 'var(--text-secondary)',
+                      fontWeight: hasUnread ? 600 : 400,
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                       whiteSpace: 'nowrap',
                     }}>
-                      {contact.department || contact.email}
+                      {contact.lastMessage ? contact.lastMessage : (contact.department || contact.email)}
                     </p>
                   </div>
                 </div>
@@ -583,9 +635,40 @@ export default function Chat() {
             </form>
           </>
         ) : (
-          <div style={{ margin: 'auto', textAlign: 'center', color: 'var(--text-secondary)' }}>
-            <h3>Welcome to EduPortal Chat</h3>
-            <p>Select a contact from the list on the left to start messaging in real time.</p>
+          <div style={{
+            margin: 'auto',
+            textAlign: 'center',
+            padding: '2.5rem 1.5rem',
+            color: 'var(--text-secondary)',
+            maxWidth: '460px',
+          }}>
+            <div style={{
+              width: '68px',
+              height: '68px',
+              borderRadius: '50%',
+              background: 'rgba(168, 143, 112, 0.12)',
+              color: '#A88F70',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 1.25rem',
+            }}>
+              <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+            </div>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.6rem' }}>
+              Your Messages
+            </h3>
+            <p style={{ fontSize: '0.9rem', lineHeight: 1.5, margin: 0 }}>
+              {unreadCount > 0 ? (
+                <span>
+                  You have <strong style={{ color: '#ef4444' }}>{unreadCount}</strong> unread message{unreadCount > 1 ? 's' : ''}. Select a conversation with a badge from the list on the left to read and reply.
+                </span>
+              ) : (
+                'Select a contact from the list on the left to start messaging in real time.'
+              )}
+            </p>
           </div>
         )}
       </div>

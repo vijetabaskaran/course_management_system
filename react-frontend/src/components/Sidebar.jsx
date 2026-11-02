@@ -1,9 +1,11 @@
 import { useState, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useChatNotifications } from '../context/ChatNotificationContext';
 import { getInitials } from '../services/storage';
 
 export default function Sidebar({ sections, activeSection, onNavigate, theme = 'student-theme', breadcrumb }) {
   const { user, logout } = useAuth();
+  const { unreadCount } = useChatNotifications();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -61,17 +63,60 @@ export default function Sidebar({ sections, activeSection, onNavigate, theme = '
         </div>
 
         <nav className="sidebar-nav">
-          {sections.map(({ key, label, icon }) => (
-            <button
-              key={key}
-              id={`nav-${key}`}
-              className={`nav-item${activeSection === key ? ' active' : ''}`}
-              onClick={() => handleNav(key)}
-            >
-              {icon}
-              <span className="nav-label">{label}</span>
-            </button>
-          ))}
+          {sections.map(({ key, label, icon }) => {
+            const isChat = key === 'chat';
+            const showChatBadge = isChat && unreadCount > 0;
+            return (
+              <button
+                key={key}
+                id={`nav-${key}`}
+                className={`nav-item${activeSection === key ? ' active' : ''}`}
+                onClick={() => handleNav(key)}
+                style={{ position: 'relative' }}
+              >
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  {icon}
+                  {showChatBadge && collapsed && (
+                    <span
+                      style={{
+                        position: 'absolute',
+                        top: '-3px',
+                        right: '-3px',
+                        width: '8px',
+                        height: '8px',
+                        borderRadius: '50%',
+                        backgroundColor: '#ef4444',
+                        boxShadow: '0 0 6px rgba(239, 68, 68, 0.8)',
+                        border: '1.5px solid var(--sidebar-bg, #ffffff)',
+                      }}
+                      title={`${unreadCount} unread message(s)`}
+                    />
+                  )}
+                </div>
+                <span className="nav-label">{label}</span>
+                {showChatBadge && !collapsed && (
+                  <span
+                    className="sidebar-chat-badge"
+                    style={{
+                      marginLeft: 'auto',
+                      backgroundColor: '#ef4444',
+                      color: '#ffffff',
+                      fontSize: '0.7rem',
+                      fontWeight: 700,
+                      padding: '2px 7px',
+                      borderRadius: '10px',
+                      minWidth: '20px',
+                      textAlign: 'center',
+                      lineHeight: '1.2',
+                      boxShadow: '0 0 8px rgba(239, 68, 68, 0.45)',
+                    }}
+                  >
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </nav>
 
         <div className="sidebar-footer">

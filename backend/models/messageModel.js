@@ -172,8 +172,20 @@ async function getUnreadCounts(receiverIdentifiers) {
 
   const bySender = {};
   for (const item of bySenderAggregation) {
-    if (item._id) bySender[item._id] = item.count;
-    if (item.senderEmail) bySender[item.senderEmail.toLowerCase()] = item.count;
+    const count = item.count || 0;
+    if (item._id) bySender[item._id] = count;
+    if (item.senderEmail) bySender[item.senderEmail.toLowerCase()] = count;
+
+    // Expand to all aliases so frontend lookups by id, _id, or email always succeed
+    try {
+      const aliases = await resolveUserAliases(item._id || item.senderEmail);
+      for (const alias of aliases) {
+        if (alias) {
+          bySender[alias] = count;
+          if (typeof alias === 'string') bySender[alias.toLowerCase()] = count;
+        }
+      }
+    } catch (_) {}
   }
 
   return {

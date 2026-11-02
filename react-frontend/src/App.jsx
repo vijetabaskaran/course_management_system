@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { CourseProvider } from './context/CourseContext';
+import { ChatNotificationProvider } from './context/ChatNotificationContext';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
@@ -79,9 +80,11 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <CourseProvider>
-          <AppRoutes/>
-        </CourseProvider>
+        <ChatNotificationProvider>
+          <CourseProvider>
+            <AppRoutes/>
+          </CourseProvider>
+        </ChatNotificationProvider>
       </AuthProvider>
     </BrowserRouter>
   );
