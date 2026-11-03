@@ -157,8 +157,8 @@ async function login(body) {
 
   if (raw.authScheme === 'bcrypt') {
     passwordMatch = await bcrypt.compare(password, raw.password);
-    // Allow either development password (AdminSecure2026!) or demo password (Admin@123) for administrator
-    if (!passwordMatch && normEmail === 'admin@eduportal.com' && (password === 'Admin@123' || password === 'AdminSecure2026!')) {
+    // In local development, permit demo credentials for administrator to preserve existing development workflows
+    if (!passwordMatch && process.env.NODE_ENV !== 'production' && normEmail === 'admin@eduportal.com' && (password === 'Admin@123' || password === 'AdminSecure2026!')) {
       passwordMatch = true;
     }
   } else {
@@ -212,58 +212,33 @@ async function adminLogin(body) {
 
   const normEmail = email.trim().toLowerCase();
 
-  // 1. Check if admin exists in database (e.g. created by scripts/createAdmin.js)
+  // Retrieve admin account from database (created by scripts/createAdmin.js)
   const raw = await studentModel.findByEmailRaw(normEmail);
-  if (raw && raw.role === 'admin') {
-    let passwordMatch = false;
-    if (raw.authScheme === 'bcrypt') {
-      passwordMatch = await bcrypt.compare(password, raw.password);
-      if (!passwordMatch && (password === 'Admin@123' || password === 'AdminSecure2026!')) {
-        passwordMatch = true;
-      }
-    } else {
-      const legacyHash = legacyHashPassword(password);
-      passwordMatch = (raw.password === legacyHash || raw.password === password || password === 'Admin@123');
-    }
-    if (passwordMatch) {
-      const safeAdmin = studentModel.strip(raw);
-      safeAdmin.role = 'admin';
-      const token = signToken(raw);
-      const expiresIn = process.env.JWT_EXPIRES_IN || '1h';
-      return {
-        message:   'Admin login successful.',
-        token,
-        tokenType: 'Bearer',
-        expiresIn,
-        user:      safeAdmin,
-        student:   safeAdmin,
-        role:      'admin',
-      };
-    }
-  }
-
-  // 2. Legacy fallback: check demo credentials
-  const ADMIN_EMAIL = 'admin@eduportal.com';
-  const ADMIN_HASH  = legacyHashPassword('Admin@123');
-  const inputHash   = legacyHashPassword(password);
-
-  if (normEmail !== ADMIN_EMAIL || (inputHash !== ADMIN_HASH && password !== 'Admin@123')) {
+  if (!raw || raw.role !== 'admin') {
     const err = new Error('Invalid admin credentials.'); err.statusCode = 401; throw err;
   }
 
-  const adminRecord = raw
-    ? { ...studentModel.strip(raw), role: 'admin' }
-    : { id: 'admin-1', email: ADMIN_EMAIL, role: 'admin' };
-  const token     = signToken(adminRecord);
+  let passwordMatch = false;
+  if (raw.authScheme === 'bcrypt') {
+    passwordMatch = await bcrypt.compare(password, raw.password);
+    // In local development, permit demo credentials for administrator to preserve existing development workflows
+    if (!passwordMatch && process.env.NODE_ENV !== 'production' && normEmail === 'admin@eduportal.com' && (password === 'Admin@123' || password === 'AdminSecure2026!')) {
+      passwordMatch = true;
+    }
+  } else {
+    const legacyHash = legacyHashPassword(password);
+    passwordMatch = (raw.password === legacyHash || raw.password === password);
+  }
+
+  if (!passwordMatch) {
+    const err = new Error('Invalid admin credentials.'); err.statusCode = 401; throw err;
+  }
+
+  const safeAdmin = studentModel.strip(raw);
+  safeAdmin.role = 'admin';
+  const token = signToken(raw);
   const expiresIn = process.env.JWT_EXPIRES_IN || '1h';
 
-  const safeAdmin = {
-    id: adminRecord.id || 'admin-1',
-    email: ADMIN_EMAIL,
-    username: adminRecord.username || 'admin',
-    fullname: adminRecord.fullname || 'Administrator',
-    role: 'admin',
-  };
   return {
     message:   'Admin login successful.',
     token,

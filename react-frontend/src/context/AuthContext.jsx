@@ -89,11 +89,22 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const session = getSession();
     if (session && session.user) {
+      const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+      // If session exists without a valid token, clear stale session so unauthenticated state doesn't persist
+      if (!token) {
+        destroySession();
+        sessionStorage.removeItem('token');
+        sessionStorage.removeItem('role');
+        localStorage.removeItem('token');
+        setUser(null);
+        setLoading(false);
+        return;
+      }
       setUser(session.user);
       if (session.user.role) {
         sessionStorage.setItem('role', session.user.role);
       }
-      connectSocket();
+      connectSocket(token);
     }
     setLoading(false);
   }, []);
@@ -151,12 +162,7 @@ export function AuthProvider({ children }) {
               };
             }
           } catch {
-            // 3. Fallback: validate admin credentials client-side if offline
-            const clientAdmin = authenticateAdmin(email, password);
-            if (clientAdmin) {
-              authenticated = clientAdmin;
-              sessionStorage.setItem('role', 'admin');
-            }
+            // Endpoints failed — do not fall back to tokenless offline session
           }
         }
       } else {
