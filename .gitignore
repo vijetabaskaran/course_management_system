@@ -24,3 +24,8 @@ npm-debug.log*
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Local database files - never upload to GitHub
+backend/data/db.json
+mock-api/db.json
+mock-api/node_modules/
